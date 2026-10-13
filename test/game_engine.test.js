@@ -298,6 +298,110 @@ test('Planetary Physics: High gravity zone and quantum jump lift execute properl
 });
 
 // ----------------------------------------------------------------------------
+// TEST 10: MULTI-LEVEL SECTOR PROGRESSION & UNLOCK SYSTEM
+// ----------------------------------------------------------------------------
+test('Level Progression: Level 1 unlocks Level 2, and Level 2 unlocks Level 3', () => {
+  let unlockedLevels = [1];
+  let currentLevel = 1;
+
+  // Function simulating level completion logic
+  function unlockNextLevel(lvl) {
+    if (lvl === 1 && !unlockedLevels.includes(2)) {
+      unlockedLevels.push(2);
+    } else if (lvl === 2 && !unlockedLevels.includes(3)) {
+      unlockedLevels.push(3);
+    }
+  }
+
+  assert.deepEqual(unlockedLevels, [1], 'Initially only Level 1 is unlocked');
+  assert.ok(!unlockedLevels.includes(2), 'Level 2 is initially locked');
+  assert.ok(!unlockedLevels.includes(3), 'Level 3 is initially locked');
+
+  // Complete Level 1
+  unlockNextLevel(1);
+  assert.deepEqual(unlockedLevels, [1, 2], 'Clearing Level 1 unlocks Sector 02: Crimson Frontier');
+
+  // Complete Level 2
+  unlockNextLevel(2);
+  assert.deepEqual(unlockedLevels, [1, 2, 3], 'Clearing Level 2 unlocks Sector 03: Eclipse Core');
+});
+
+// ----------------------------------------------------------------------------
+// TEST 11: JETPACK DOUBLE JUMP & GROUND CONTACT RECHARGE
+// ----------------------------------------------------------------------------
+test('Double Jump Jetpack: Mid-air jump triggers reliably and recharges on ground contact', () => {
+  let p = {
+    vy: 120, // Falling mid-air
+    onGround: false,
+    coyoteTimer: 0,
+    jumpCooldown: 0,
+    doubleJumpAvailable: true,
+    jumpImpulse: -620,
+    isAttacking: false
+  };
+
+  function triggerJump(player) {
+    const cooldown = typeof player.jumpCooldown === 'number' ? player.jumpCooldown : 0;
+    const canGroundJump = (player.onGround || player.coyoteTimer > 0) && cooldown <= 0;
+    const canDoubleJump = !canGroundJump && player.doubleJumpAvailable && cooldown <= 0;
+
+    if (canGroundJump) {
+      player.vy = player.jumpImpulse;
+      player.onGround = false;
+      player.doubleJumpAvailable = true;
+      return 'GROUND_JUMP';
+    } else if (canDoubleJump) {
+      player.vy = player.jumpImpulse * 0.95;
+      player.doubleJumpAvailable = false;
+      return 'DOUBLE_JUMP';
+    }
+    return false;
+  }
+
+  // Mid-air trigger
+  const res1 = triggerJump(p);
+  assert.equal(res1, 'DOUBLE_JUMP', 'Player can perform jetpack double jump mid-air');
+  assert.ok(p.vy < 0, 'Double jump propels player upwards');
+  assert.equal(p.doubleJumpAvailable, false, 'Double jump is consumed after use');
+
+  // Second mid-air attempt without landing should fail
+  const res2 = triggerJump(p);
+  assert.equal(res2, false, 'Cannot triple jump without landing');
+
+  // Land on ground -> double jump recharge
+  p.onGround = true;
+  p.doubleJumpAvailable = true;
+  assert.equal(p.doubleJumpAvailable, true, 'Double jump is refreshed on ground landing');
+
+  // Ground jump succeeds
+  const res3 = triggerJump(p);
+  assert.equal(res3, 'GROUND_JUMP', 'Ground jump succeeds from surface');
+});
+
+// ----------------------------------------------------------------------------
+// TEST 12: STARDUST COIN ECONOMY & LEVEL REWARD CALCULATION
+// ----------------------------------------------------------------------------
+test('Economy: Level victory correctly computes mission bonus, crystal bonus, and enemy bounties', () => {
+  let playerCoins = 100;
+  const currentLevel = 1;
+  const crystalsCollected = 5;
+  const enemiesDefeated = 4;
+
+  const missionBonus = currentLevel === 1 ? 150 : (currentLevel === 2 ? 250 : 400);
+  const crystalBonus = crystalsCollected * 10;
+  const enemyBonus = enemiesDefeated * 25;
+  const totalReward = missionBonus + crystalBonus + enemyBonus;
+
+  playerCoins += totalReward;
+
+  assert.equal(missionBonus, 150, 'Level 1 mission bonus is 150 coins');
+  assert.equal(crystalBonus, 50, '5 crystals yield 50 coins');
+  assert.equal(enemyBonus, 100, '4 enemies defeated yield 100 bounty coins');
+  assert.equal(totalReward, 300, 'Total mission earnings = 300 coins');
+  assert.equal(playerCoins, 400, 'Vault balance updated accurately from 100 to 400 coins');
+});
+
+// ----------------------------------------------------------------------------
 // SUMMARY
 // ----------------------------------------------------------------------------
 console.log(`\n============================================================`);

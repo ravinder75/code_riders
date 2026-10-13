@@ -199,6 +199,23 @@ class SoundController {
     } catch (e) {}
   }
 
+  playLaserShoot() {
+    if (!this.enabled || !this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(160, this.ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.14);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.14);
+    } catch (e) {}
+  }
+
   playCrystalCollect() {
     if (!this.enabled || !this.ctx) return;
     try {
@@ -355,6 +372,16 @@ class VectorOdysseyGame {
     // Radar / Full Map State
     this.fullMapOpen = false;
 
+    // Level Progression & Economy Systems (Requirement: Level 1 -> Unlock Level 2 -> Unlock Level 3)
+    this.currentLevel = 1;
+    this.unlockedLevels = [1];
+    this.coins = 100;
+    this.levelStars = { 1: 0, 2: 0, 3: 0 };
+    this.enemiesDefeated = 0;
+    this.screenShake = 0;
+    this.floatingTexts = [];
+    this.targetPlanet = this.planets[0];
+
     // On-Foot Surface Player Entity (Cygnus Prime)
     this.surfaceLevelWidth = 2600;
     this.player = {
@@ -368,7 +395,8 @@ class VectorOdysseyGame {
       accel: 2000,
       friction: 0.82,
       gravity: 980,
-      jumpImpulse: -560,
+      jumpImpulse: -620, // Responsive, satisfying jump impulse
+      doubleJumpAvailable: true, // Jetpack double jump mid-air
       onGround: false,
       jumpCooldown: 0,
       coyoteTimer: 0,
@@ -437,6 +465,9 @@ class VectorOdysseyGame {
     // Time
     this.lastTime = performance.now();
     this.gameTime = 0;
+
+    // Load persistent progress from localStorage
+    this.loadProgress();
 
     // Initialization
     this.initCosmos();
@@ -522,6 +553,10 @@ class VectorOdysseyGame {
     this.asteroids = [];
     this.spaceCanisters = [];
 
+    const lvl = this.currentLevel || 1;
+    this.targetPlanet = lvl === 2 ? this.planets[1] : (lvl === 3 ? this.planets[4] : this.planets[0]);
+
+    // Base Asteroid configurations
     const asteroidConfigs = [
       { x: 850, y: 820, radius: 46, rotSpeed: 0.3 },
       { x: 1100, y: 1250, radius: 54, rotSpeed: -0.4 },
@@ -533,6 +568,21 @@ class VectorOdysseyGame {
       { x: 3150, y: 880, radius: 42, rotSpeed: -0.45 },
       { x: 3450, y: 1140, radius: 50, rotSpeed: 0.3 }
     ];
+
+    if (lvl >= 2) {
+      asteroidConfigs.push(
+        { x: 2000, y: 600, radius: 48, rotSpeed: 0.4 },
+        { x: 2300, y: 1350, radius: 52, rotSpeed: -0.35 },
+        { x: 3700, y: 920, radius: 46, rotSpeed: 0.25 }
+      );
+    }
+    if (lvl >= 3) {
+      asteroidConfigs.push(
+        { x: 1650, y: 1350, radius: 58, rotSpeed: -0.4 },
+        { x: 2600, y: 1150, radius: 50, rotSpeed: 0.3 },
+        { x: 3850, y: 1250, radius: 55, rotSpeed: 0.5 }
+      );
+    }
 
     asteroidConfigs.forEach(cfg => {
       const numPts = 8;
@@ -579,21 +629,39 @@ class VectorOdysseyGame {
       { x: 3300, y: 980, radius: 14, collected: false }
     ];
 
-    // Hostile Outer Space Hunter Interceptors (Chase & Attack the ship)
+    // Hostile Chaser Drones (Speed & Aggression increase per level!)
+    const droneSpeed = lvl === 1 ? 280 : (lvl === 2 ? 335 : 385);
+    const shootCd = lvl === 1 ? 2.0 : (lvl === 2 ? 1.6 : 1.25);
+    const detectRad = lvl === 1 ? 1100 : (lvl === 2 ? 1250 : 1400);
+
     this.hunterDrones = [
-      { id: 1, x: 1250, y: 840, vx: 0, vy: 0, speed: 280, radius: 24, detectionRadius: 1100, shootTimer: 2.0, hp: 3, alert: false, angle: 0 },
-      { id: 2, x: 2150, y: 1350, vx: 0, vy: 0, speed: 290, radius: 24, detectionRadius: 1150, shootTimer: 1.8, hp: 3, alert: false, angle: 0 },
-      { id: 3, x: 2750, y: 760, vx: 0, vy: 0, speed: 310, radius: 24, detectionRadius: 1200, shootTimer: 1.6, hp: 3, alert: false, angle: 0 },
-      { id: 4, x: 3450, y: 1180, vx: 0, vy: 0, speed: 330, radius: 24, detectionRadius: 1250, shootTimer: 1.4, hp: 3, alert: false, angle: 0 }
+      { id: 1, x: 1250, y: 840, vx: 0, vy: 0, speed: droneSpeed, radius: 24, detectionRadius: detectRad, shootTimer: shootCd, hp: 3, alert: false, angle: 0 },
+      { id: 2, x: 2150, y: 1350, vx: 0, vy: 0, speed: droneSpeed, radius: 24, detectionRadius: detectRad, shootTimer: shootCd * 0.9, hp: 3, alert: false, angle: 0 },
+      { id: 3, x: 2750, y: 760, vx: 0, vy: 0, speed: droneSpeed + 20, radius: 24, detectionRadius: detectRad + 50, shootTimer: shootCd * 0.8, hp: 3, alert: false, angle: 0 },
+      { id: 4, x: 3450, y: 1180, vx: 0, vy: 0, speed: droneSpeed + 30, radius: 24, detectionRadius: detectRad + 100, shootTimer: shootCd * 0.7, hp: 3, alert: false, angle: 0 }
     ];
+
+    if (lvl >= 2) {
+      this.hunterDrones.push(
+        { id: 5, x: 1750, y: 700, vx: 0, vy: 0, speed: droneSpeed + 15, radius: 24, detectionRadius: detectRad, shootTimer: 1.5, hp: 3, alert: false, angle: 0 },
+        { id: 6, x: 3000, y: 1300, vx: 0, vy: 0, speed: droneSpeed + 25, radius: 24, detectionRadius: detectRad + 80, shootTimer: 1.4, hp: 3, alert: false, angle: 0 }
+      );
+    }
+    if (lvl >= 3) {
+      this.hunterDrones.push(
+        { id: 7, x: 1500, y: 1150, vx: 0, vy: 0, speed: droneSpeed + 35, radius: 24, detectionRadius: detectRad + 120, shootTimer: 1.2, hp: 4, alert: false, angle: 0 },
+        { id: 8, x: 3700, y: 820, vx: 0, vy: 0, speed: droneSpeed + 40, radius: 24, detectionRadius: detectRad + 150, shootTimer: 1.1, hp: 4, alert: false, angle: 0 }
+      );
+    }
     this.spaceLasers = [];
   }
 
   initSurfaceLevel() {
-    this.surfaceLevelWidth = 2600;
+    const lvl = this.currentLevel || 1;
     this.checkpointReached = false;
     this.crystalsCollected = 0;
     this.terminalOpen = false;
+    this.enemiesDefeated = 0;
 
     this.player.x = 120;
     this.player.y = 590;
@@ -609,80 +677,165 @@ class VectorOdysseyGame {
     this.player.coyoteTimer = 0;
     this.player.jumpBufferTimer = 0;
     this.player.justLandedTimer = 0;
+    this.player.doubleJumpAvailable = true;
     this.player.onGround = false;
     this.player.hp = 100;
     this.player.maxHp = 100;
 
-    // Surface Combat Enemies (Shootable with Kamehameha)
-    this.surfaceEnemies = [
-      { id: 1, type: 'crawler', name: 'PLASMA CRAWLER', x: 420, y: 636, minX: 340, maxX: 540, vx: 80, vy: 0, w: 36, h: 26, hp: 30, maxHp: 30, facing: 1, alive: true },
-      { id: 2, type: 'sentinel', name: 'CYBER-SENTINEL', x: 650, y: 460, minX: 580, maxX: 720, vx: 60, vy: 0, w: 38, h: 38, hp: 40, maxHp: 40, shootTimer: 2.2, facing: -1, alive: true },
-      { id: 3, type: 'sentinel', name: 'HEAVY SENTINEL', x: 1040, y: 350, minX: 950, maxX: 1140, vx: 70, vy: 0, w: 38, h: 38, hp: 40, maxHp: 40, shootTimer: 2.0, facing: -1, alive: true },
-      { id: 4, type: 'crawler', name: 'PLASMA CRAWLER', x: 1320, y: 636, minX: 1220, maxX: 1440, vx: 95, vy: 0, w: 36, h: 26, hp: 30, maxHp: 30, facing: 1, alive: true },
-      { id: 5, type: 'sentinel', name: 'ELITE SENTINEL', x: 1940, y: 460, minX: 1820, maxX: 2040, vx: 80, vy: 0, w: 38, h: 38, hp: 50, maxHp: 50, shootTimer: 1.8, facing: -1, alive: true },
-      { id: 6, type: 'sentinel', name: 'GATE GUARDIAN', x: 2320, y: 410, minX: 2240, maxX: 2420, vx: 65, vy: 0, w: 42, h: 42, hp: 60, maxHp: 60, shootTimer: 1.5, facing: -1, alive: true }
-    ];
+    // Update HUD Planet Name
+    const pName = document.getElementById('hud-planet-name');
+    if (pName) {
+      pName.textContent = lvl === 1 ? 'CYGNUS PRIME' : (lvl === 2 ? 'CRIMSON FRONTIER' : 'ECLIPSE CORE');
+    }
+    const sectorEl = document.querySelector('.hud-sector');
+    if (sectorEl) {
+      sectorEl.textContent = `SECTOR 0${lvl}`;
+    }
+
+    if (lvl === 1) {
+      // LEVEL 1: CYGNUS PRIME (9.8 m/s² + High Gravity Anomaly & Sloped Ramp)
+      this.surfaceLevelWidth = 2600;
+      this.totalCrystals = 5;
+
+      this.surfaceEnemies = [
+        { id: 1, type: 'crawler', name: 'PLASMA CRAWLER', x: 420, y: 636, minX: 340, maxX: 540, vx: 80, vy: 0, w: 36, h: 26, hp: 35, maxHp: 35, facing: 1, alive: true },
+        { id: 2, type: 'sentinel', name: 'CYBER-SENTINEL', x: 650, y: 460, minX: 580, maxX: 720, vx: 60, vy: 0, w: 38, h: 38, hp: 45, maxHp: 45, shootTimer: 2.2, facing: -1, alive: true },
+        { id: 3, type: 'sentinel', name: 'HEAVY SENTINEL', x: 1040, y: 350, minX: 950, maxX: 1140, vx: 70, vy: 0, w: 38, h: 38, hp: 45, maxHp: 45, shootTimer: 2.0, facing: -1, alive: true },
+        { id: 4, type: 'crawler', name: 'PLASMA CRAWLER', x: 1320, y: 636, minX: 1220, maxX: 1440, vx: 95, vy: 0, w: 36, h: 26, hp: 35, maxHp: 35, facing: 1, alive: true },
+        { id: 5, type: 'sentinel', name: 'ELITE SENTINEL', x: 1940, y: 460, minX: 1820, maxX: 2040, vx: 80, vy: 0, w: 38, h: 38, hp: 50, maxHp: 50, shootTimer: 1.8, facing: -1, alive: true },
+        { id: 6, type: 'sentinel', name: 'GATE GUARDIAN', x: 2320, y: 410, minX: 2240, maxX: 2420, vx: 65, vy: 0, w: 42, h: 42, hp: 65, maxHp: 65, shootTimer: 1.5, facing: -1, alive: true }
+      ];
+
+      this.platforms = [
+        { x: 0, y: 660, w: 560, h: 240, type: 'ground' },
+        { x: 340, y: 550, w: 160, h: 28, type: 'platform' },
+        { x: 620, y: 580, w: 90, h: 24, type: 'energy_platform' },
+        { x: 760, y: 660, w: 420, h: 240, type: 'ground' },
+        { x: 880, y: 520, w: 140, h: 24, type: 'platform' },
+        { x: 1060, y: 440, w: 130, h: 24, type: 'platform' },
+        { x: 1220, y: 660, w: 220, h: 240, type: 'ground' },
+        { x: 1460, y: 660, w: 260, h: 240, type: 'slope', slopeAngle: 30, rise: 80 },
+        { x: 1720, y: 580, w: 340, h: 320, type: 'ground' },
+        { x: 2080, y: 540, w: 120, h: 24, type: 'energy_platform' },
+        { x: 2220, y: 660, w: 380, h: 240, type: 'ground' }
+      ];
+
+      this.crystals = [
+        { id: 1, x: 420, y: 500, w: 22, h: 32, collected: false, phase: 0 },
+        { id: 2, x: 665, y: 530, w: 22, h: 32, collected: false, phase: 1.2 },
+        { id: 3, x: 1125, y: 390, w: 22, h: 32, collected: false, phase: 2.4 },
+        { id: 4, x: 1560, y: 560, w: 22, h: 32, collected: false, phase: 3.6 },
+        { id: 5, x: 2140, y: 480, w: 22, h: 32, collected: false, phase: 4.8 }
+      ];
+
+      this.obstacles = [
+        { x: 1350, y: 520, w: 36, h: 140, cycleTime: 3.0, activeDuration: 1.4, timer: 0, isActive: false }
+      ];
+
+      this.terminal = { x: 1480, y: 600, w: 40, h: 60, interacted: false };
+      this.checkpointBeacon = { x: 1820, y: 580, w: 30, h: 70, activated: false };
+      this.ancientGate = { x: 2360, y: 490, w: 120, h: 170, activated: false, rotation: 0 };
+
+    } else if (lvl === 2) {
+      // LEVEL 2: CRIMSON FRONTIER (Low Gravity 4.8 m/s² + Lava chasms & Floating Basalt Bridges)
+      this.surfaceLevelWidth = 2800;
+      this.totalCrystals = 6;
+
+      this.surfaceEnemies = [
+        { id: 1, type: 'crawler', name: 'FLAME CRAWLER', x: 380, y: 636, minX: 280, maxX: 460, vx: 90, vy: 0, w: 36, h: 26, hp: 45, maxHp: 45, facing: 1, alive: true },
+        { id: 2, type: 'sentinel', name: 'MAGMA DRONE', x: 640, y: 450, minX: 540, maxX: 700, vx: 75, vy: 0, w: 38, h: 38, hp: 50, maxHp: 50, shootTimer: 1.8, facing: -1, alive: true },
+        { id: 3, type: 'crawler', name: 'FLAME CRAWLER', x: 1100, y: 616, minX: 960, maxX: 1250, vx: 105, vy: 0, w: 36, h: 26, hp: 45, maxHp: 45, facing: 1, alive: true },
+        { id: 4, type: 'sentinel', name: 'SOLAR SENTINEL', x: 1450, y: 380, minX: 1360, maxX: 1540, vx: 85, vy: 0, w: 38, h: 38, hp: 55, maxHp: 55, shootTimer: 1.6, facing: -1, alive: true },
+        { id: 5, type: 'crawler', name: 'VOLCANIC STALKER', x: 1720, y: 636, minX: 1640, maxX: 1800, vx: 100, vy: 0, w: 36, h: 26, hp: 50, maxHp: 50, facing: -1, alive: true },
+        { id: 6, type: 'sentinel', name: 'HEAVY PYRO MECH', x: 2200, y: 480, minX: 2100, maxX: 2320, vx: 70, vy: 0, w: 42, h: 42, hp: 70, maxHp: 70, shootTimer: 1.4, facing: -1, alive: true },
+        { id: 7, type: 'sentinel', name: 'MAGMA GATE TITAN', x: 2540, y: 520, minX: 2460, maxX: 2620, vx: 60, vy: 0, w: 44, h: 44, hp: 80, maxHp: 80, shootTimer: 1.3, facing: -1, alive: true }
+      ];
+
+      this.platforms = [
+        { x: 0, y: 660, w: 480, h: 240, type: 'ground' },
+        { x: 530, y: 570, w: 140, h: 26, type: 'platform' },
+        { x: 740, y: 490, w: 150, h: 26, type: 'energy_platform' },
+        { x: 960, y: 640, w: 340, h: 260, type: 'ground' },
+        { x: 1370, y: 520, w: 150, h: 26, type: 'platform' },
+        { x: 1590, y: 430, w: 160, h: 26, type: 'energy_platform' },
+        { x: 1820, y: 660, w: 260, h: 240, type: 'slope', slopeAngle: 30, rise: 85 },
+        { x: 2080, y: 575, w: 300, h: 325, type: 'ground' },
+        { x: 2420, y: 530, w: 130, h: 26, type: 'platform' },
+        { x: 2580, y: 660, w: 320, h: 240, type: 'ground' }
+      ];
+
+      this.crystals = [
+        { id: 1, x: 420, y: 520, w: 22, h: 32, collected: false, phase: 0 },
+        { id: 2, x: 600, y: 500, w: 22, h: 32, collected: false, phase: 1.0 },
+        { id: 3, x: 810, y: 420, w: 22, h: 32, collected: false, phase: 2.0 },
+        { id: 4, x: 1440, y: 450, w: 22, h: 32, collected: false, phase: 3.0 },
+        { id: 5, x: 1670, y: 360, w: 22, h: 32, collected: false, phase: 4.0 },
+        { id: 6, x: 2480, y: 460, w: 22, h: 32, collected: false, phase: 5.0 }
+      ];
+
+      this.obstacles = [
+        { x: 490, y: 570, w: 36, h: 130, cycleTime: 2.5, activeDuration: 1.2, timer: 0, isActive: false },
+        { x: 1315, y: 540, w: 36, h: 140, cycleTime: 2.6, activeDuration: 1.3, timer: 0, isActive: false },
+        { x: 2390, y: 550, w: 28, h: 140, cycleTime: 2.4, activeDuration: 1.1, timer: 0, isActive: false }
+      ];
+
+      this.terminal = { x: 1840, y: 600, w: 40, h: 60, interacted: false };
+      this.checkpointBeacon = { x: 2120, y: 575, w: 30, h: 70, activated: false };
+      this.ancientGate = { x: 2660, y: 490, w: 120, h: 170, activated: false, rotation: 0 };
+
+    } else if (lvl === 3) {
+      // LEVEL 3: ECLIPSE CORE (Singularity Citadel & Inverted Gravity Zones)
+      this.surfaceLevelWidth = 3000;
+      this.totalCrystals = 7;
+
+      this.surfaceEnemies = [
+        { id: 1, type: 'crawler', name: 'VOID STALKER', x: 380, y: 636, minX: 260, maxX: 460, vx: 100, vy: 0, w: 36, h: 26, hp: 55, maxHp: 55, facing: 1, alive: true },
+        { id: 2, type: 'sentinel', name: 'NEON SENTINEL', x: 620, y: 460, minX: 520, maxX: 720, vx: 80, vy: 0, w: 38, h: 38, hp: 60, maxHp: 60, shootTimer: 1.6, facing: -1, alive: true },
+        { id: 3, type: 'sentinel', name: 'SINGULARITY DRONE', x: 1040, y: 440, minX: 940, maxX: 1140, vx: 90, vy: 0, w: 38, h: 38, hp: 65, maxHp: 65, shootTimer: 1.4, facing: -1, alive: true },
+        { id: 4, type: 'sentinel', name: 'CEILING DEFENDER', x: 1350, y: 320, minX: 1240, maxX: 1440, vx: 70, vy: 0, w: 38, h: 38, hp: 65, maxHp: 65, shootTimer: 1.5, facing: 1, alive: true },
+        { id: 5, type: 'crawler', name: 'VOID STALKER', x: 1840, y: 596, minX: 1720, maxX: 1940, vx: 110, vy: 0, w: 36, h: 26, hp: 55, maxHp: 55, facing: -1, alive: true },
+        { id: 6, type: 'sentinel', name: 'DUAL LASER DRONE', x: 2150, y: 420, minX: 2060, maxX: 2260, vx: 85, vy: 0, w: 38, h: 38, hp: 70, maxHp: 70, shootTimer: 1.3, facing: -1, alive: true },
+        { id: 7, type: 'sentinel', name: 'ELITE INTERCEPTOR', x: 2420, y: 480, minX: 2340, maxX: 2500, vx: 90, vy: 0, w: 38, h: 38, hp: 75, maxHp: 75, shootTimer: 1.2, facing: -1, alive: true },
+        { id: 8, type: 'sentinel', name: 'OMEGA GATE GUARDIAN', x: 2720, y: 430, minX: 2620, maxX: 2840, vx: 70, vy: 0, w: 46, h: 46, hp: 110, maxHp: 110, shootTimer: 1.0, facing: -1, alive: true }
+      ];
+
+      this.platforms = [
+        { x: 0, y: 660, w: 480, h: 240, type: 'ground' },
+        { x: 530, y: 550, w: 140, h: 26, type: 'platform' },
+        { x: 740, y: 470, w: 140, h: 26, type: 'energy_platform' },
+        { x: 940, y: 640, w: 260, h: 260, type: 'ground' },
+        { x: 1240, y: 320, w: 220, h: 30, type: 'platform' },
+        { x: 1480, y: 440, w: 160, h: 26, type: 'energy_platform' },
+        { x: 1700, y: 620, w: 280, h: 280, type: 'ground' },
+        { x: 2020, y: 540, w: 120, h: 26, type: 'platform' },
+        { x: 2180, y: 460, w: 120, h: 26, type: 'energy_platform' },
+        { x: 2340, y: 380, w: 120, h: 26, type: 'platform' },
+        { x: 2500, y: 660, w: 500, h: 240, type: 'ground' }
+      ];
+
+      this.crystals = [
+        { id: 1, x: 420, y: 500, w: 22, h: 32, collected: false, phase: 0 },
+        { id: 2, x: 600, y: 480, w: 22, h: 32, collected: false, phase: 0.8 },
+        { id: 3, x: 810, y: 400, w: 22, h: 32, collected: false, phase: 1.6 },
+        { id: 4, x: 1340, y: 360, w: 22, h: 32, collected: false, phase: 2.4 },
+        { id: 5, x: 1560, y: 370, w: 22, h: 32, collected: false, phase: 3.2 },
+        { id: 6, x: 2240, y: 390, w: 22, h: 32, collected: false, phase: 4.0 },
+        { id: 7, x: 2400, y: 320, w: 22, h: 32, collected: false, phase: 4.8 }
+      ];
+
+      this.obstacles = [
+        { x: 490, y: 550, w: 36, h: 140, cycleTime: 2.2, activeDuration: 1.1, timer: 0, isActive: false },
+        { x: 1660, y: 530, w: 36, h: 140, cycleTime: 2.4, activeDuration: 1.2, timer: 0, isActive: false },
+        { x: 2465, y: 550, w: 32, h: 140, cycleTime: 2.0, activeDuration: 1.0, timer: 0, isActive: false }
+      ];
+
+      this.terminal = { x: 1720, y: 560, w: 40, h: 60, interacted: false };
+      this.checkpointBeacon = { x: 1760, y: 620, w: 30, h: 70, activated: false };
+      this.ancientGate = { x: 2780, y: 490, w: 120, h: 170, activated: false, rotation: 0 };
+    }
+
     this.surfaceProjectiles = [];
-
-    this.platforms = [
-      { x: 0, y: 660, w: 560, h: 240, type: 'ground' },
-      { x: 340, y: 550, w: 160, h: 28, type: 'platform' },
-      { x: 620, y: 580, w: 90, h: 24, type: 'energy_platform' },
-      { x: 760, y: 660, w: 420, h: 240, type: 'ground' },
-      { x: 880, y: 520, w: 140, h: 24, type: 'platform' },
-      { x: 1060, y: 440, w: 130, h: 24, type: 'platform' },
-      { x: 1220, y: 660, w: 220, h: 240, type: 'ground' },
-      { x: 1460, y: 660, w: 260, h: 240, type: 'slope', slopeAngle: 30, rise: 80 },
-      { x: 1720, y: 580, w: 340, h: 320, type: 'ground' },
-      { x: 2080, y: 540, w: 120, h: 24, type: 'energy_platform' },
-      { x: 2220, y: 660, w: 380, h: 240, type: 'ground' }
-    ];
-
-    this.crystals = [
-      { id: 1, x: 420, y: 500, w: 22, h: 32, collected: false, phase: 0 },
-      { id: 2, x: 665, y: 530, w: 22, h: 32, collected: false, phase: 1.2 },
-      { id: 3, x: 1125, y: 390, w: 22, h: 32, collected: false, phase: 2.4 },
-      { id: 4, x: 1560, y: 560, w: 22, h: 32, collected: false, phase: 3.6 },
-      { id: 5, x: 2140, y: 480, w: 22, h: 32, collected: false, phase: 4.8 }
-    ];
-
-    this.obstacles = [
-      {
-        x: 1350,
-        y: 520,
-        w: 36,
-        h: 140,
-        cycleTime: 3.0,
-        activeDuration: 1.4,
-        timer: 0,
-        isActive: false
-      }
-    ];
-
-    this.terminal = {
-      x: 1480,
-      y: 600,
-      w: 40,
-      h: 60,
-      interacted: false
-    };
-
-    this.checkpointBeacon = {
-      x: 1820,
-      y: 580,
-      w: 30,
-      h: 70,
-      activated: false
-    };
-
-    this.ancientGate = {
-      x: 2360,
-      y: 490,
-      w: 120,
-      h: 170,
-      activated: false,
-      rotation: 0
-    };
+    this.updateHUD();
   }
 
   initUI() {
@@ -695,23 +848,267 @@ class VectorOdysseyGame {
       controlsModal: document.getElementById('controls-modal'),
       fullMapModal: document.getElementById('full-map-modal'),
       checkpointBanner: document.getElementById('checkpoint-banner'),
+      levelCompleteModal: document.getElementById('level-complete-modal'),
       mathTerminal: document.getElementById('math-terminal')
     };
 
+    this.updateDashboardUI();
     this.transitionToState('MAIN_MENU');
   }
 
-  bindEvents() {
-    // Main Menu Buttons
-    document.getElementById('btn-start-space')?.addEventListener('click', () => {
-      this.audio.init();
+  // --------------------------------------------------------------------------
+  // PERSISTENCE & DASHBOARD PROGRESSION
+  // --------------------------------------------------------------------------
+  loadProgress() {
+    try {
+      const u = localStorage.getItem('vector_odyssey_unlocked');
+      if (u) this.unlockedLevels = JSON.parse(u);
+      else this.unlockedLevels = [1];
+
+      const c = localStorage.getItem('vector_odyssey_coins');
+      if (c !== null) this.coins = parseInt(c, 10) || 100;
+      else this.coins = 100;
+
+      const s = localStorage.getItem('vector_odyssey_stars');
+      if (s) this.levelStars = JSON.parse(s);
+      else this.levelStars = { 1: 0, 2: 0, 3: 0 };
+    } catch (e) {
+      this.unlockedLevels = [1];
+      this.coins = 100;
+      this.levelStars = { 1: 0, 2: 0, 3: 0 };
+    }
+  }
+
+  saveProgress() {
+    try {
+      localStorage.setItem('vector_odyssey_unlocked', JSON.stringify(this.unlockedLevels));
+      localStorage.setItem('vector_odyssey_coins', this.coins.toString());
+      localStorage.setItem('vector_odyssey_stars', JSON.stringify(this.levelStars));
+    } catch (e) {}
+  }
+
+  resetProgress() {
+    this.unlockedLevels = [1];
+    this.coins = 100;
+    this.levelStars = { 1: 0, 2: 0, 3: 0 };
+    this.saveProgress();
+    this.updateDashboardUI();
+    this.updateHUD();
+    this.audio.playImpact();
+  }
+
+  updateDashboardUI() {
+    const dashCoin = document.getElementById('dashboard-coin-amount');
+    if (dashCoin) dashCoin.textContent = this.coins;
+
+    [1, 2, 3].forEach(lvl => {
+      const card = document.getElementById(`card-level-${lvl}`);
+      const badge = document.getElementById(`badge-level-${lvl}`);
+      const starsEl = document.getElementById(`stars-level-${lvl}`);
+      const isUnlocked = this.unlockedLevels.includes(lvl);
+
+      if (card) {
+        if (isUnlocked) {
+          card.classList.remove('locked');
+          card.classList.add('unlocked');
+        } else {
+          card.classList.remove('unlocked');
+          card.classList.add('locked');
+        }
+
+        const btns = card.querySelectorAll('.btn-play-level');
+        btns.forEach(b => {
+          b.disabled = !isUnlocked;
+        });
+      }
+
+      if (badge) {
+        if (isUnlocked) {
+          badge.className = 'level-status-pill status-unlocked';
+          badge.textContent = this.levelStars[lvl] > 0 ? 'CLEARED' : 'UNLOCKED';
+        } else {
+          badge.className = 'level-status-pill status-locked';
+          badge.textContent = '🔒 LOCKED';
+        }
+      }
+
+      if (starsEl) {
+        const starCount = this.levelStars[lvl] || 0;
+        let str = '';
+        for (let s = 1; s <= 3; s++) {
+          str += s <= starCount ? '★' : '☆';
+        }
+        starsEl.textContent = str;
+      }
+    });
+  }
+
+  selectLevel(lvl, mode) {
+    if (!this.unlockedLevels.includes(lvl)) return;
+    this.currentLevel = lvl;
+    this.enemiesDefeated = 0;
+    this.audio.init();
+
+    if (mode === 'space') {
+      this.initSpaceEntities();
+      this.restartFlight();
       this.transitionToState('SPACE_FLIGHT');
+    } else {
+      this.initSurfaceLevel();
+      this.transitionToState('PLAYING');
+    }
+  }
+
+  completeLevel() {
+    if (this.checkpointReached) return;
+    this.checkpointReached = true;
+    this.audio.playCheckpointReached();
+
+    const missionBonus = this.currentLevel === 1 ? 150 : (this.currentLevel === 2 ? 250 : 400);
+    const crystalBonus = this.crystalsCollected * 10;
+    const enemyBonus = this.enemiesDefeated * 25;
+    const totalEarned = missionBonus + crystalBonus + enemyBonus;
+    this.coins += totalEarned;
+
+    const ratio = this.totalCrystals > 0 ? (this.crystalsCollected / this.totalCrystals) : 1;
+    const stars = ratio >= 0.99 ? 3 : (ratio >= 0.5 ? 2 : 1);
+    this.levelStars[this.currentLevel] = Math.max(this.levelStars[this.currentLevel] || 0, stars);
+
+    let newlyUnlocked = false;
+    let nextLevelName = '';
+    if (this.currentLevel === 1 && !this.unlockedLevels.includes(2)) {
+      this.unlockedLevels.push(2);
+      newlyUnlocked = true;
+      nextLevelName = 'SECTOR 02: CRIMSON FRONTIER';
+    } else if (this.currentLevel === 2 && !this.unlockedLevels.includes(3)) {
+      this.unlockedLevels.push(3);
+      newlyUnlocked = true;
+      nextLevelName = 'SECTOR 03: ECLIPSE CORE';
+    }
+
+    this.saveProgress();
+    this.updateDashboardUI();
+    this.updateHUD();
+
+    const modal = document.getElementById('level-complete-modal');
+    if (modal) {
+      const levelNames = { 1: 'Cygnus Prime', 2: 'Crimson Frontier', 3: 'Eclipse Core' };
+      const sub = document.getElementById('victory-subtitle');
+      if (sub) sub.textContent = `Sector 0${this.currentLevel}: ${levelNames[this.currentLevel]} Conquered!`;
+
+      const rBonus = document.getElementById('reward-bonus');
+      if (rBonus) rBonus.textContent = `+${missionBonus} 🪙`;
+
+      const rCryst = document.getElementById('reward-crystals');
+      if (rCryst) rCryst.textContent = `+${crystalBonus} 🪙`;
+
+      const rEnemies = document.getElementById('reward-enemies');
+      if (rEnemies) rEnemies.textContent = `+${enemyBonus} 🪙`;
+
+      const rTot = document.getElementById('reward-total');
+      if (rTot) rTot.textContent = `+${totalEarned} COINS`;
+
+      const wBal = document.getElementById('wallet-balance-text');
+      if (wBal) wBal.textContent = `🪙 ${this.coins} COINS`;
+
+      const starContainer = document.getElementById('victory-stars');
+      if (starContainer) {
+        starContainer.innerHTML = '';
+        for (let i = 1; i <= 3; i++) {
+          const s = document.createElement('span');
+          s.className = `star ${i <= stars ? 'active' : ''}`;
+          s.textContent = '★';
+          starContainer.appendChild(s);
+        }
+      }
+
+      const unlockCard = document.getElementById('victory-unlock-card');
+      if (unlockCard) {
+        if (newlyUnlocked) {
+          unlockCard.style.display = 'flex';
+          const uTitle = document.getElementById('victory-unlock-title');
+          if (uTitle) uTitle.textContent = `${nextLevelName} UNLOCKED!`;
+          const uDesc = document.getElementById('victory-unlock-desc');
+          if (uDesc) uDesc.textContent = this.currentLevel === 1
+            ? 'Low-gravity volcanic ridge with floating basalt bridges and magma drones.'
+            : 'Singularity citadel with inverted gravity fields and the Omega Mech Guardian!';
+        } else {
+          unlockCard.style.display = 'none';
+        }
+      }
+
+      const nextBtn = document.getElementById('btn-victory-next');
+      const nextBtnText = document.getElementById('btn-victory-next-text');
+      if (nextBtn && nextBtnText) {
+        if (this.currentLevel < 3) {
+          nextBtn.style.display = 'inline-flex';
+          nextBtnText.textContent = `🚀 PROCEED TO LEVEL ${this.currentLevel + 1}`;
+        } else {
+          nextBtn.style.display = 'none';
+        }
+      }
+
+      modal.classList.add('active');
+    }
+
+    for (let i = 0; i < 90; i++) {
+      this.particles.push({
+        x: this.player.x + (Math.random() - 0.5) * 120,
+        y: this.player.y + (Math.random() - 0.5) * 100,
+        vx: (Math.random() - 0.5) * 450,
+        vy: (Math.random() - 0.5) * 450,
+        life: 1.8,
+        maxLife: 1.8,
+        color: ['#00f3ff', '#facc15', '#ef4444', '#10b981', '#ffffff'][Math.floor(Math.random() * 5)],
+        size: Math.random() * 5 + 3
+      });
+    }
+  }
+
+  bindEvents() {
+    // Level Selection Buttons on Dashboard
+    document.querySelectorAll('.btn-play-level').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lvl = parseInt(btn.dataset.level, 10);
+        const mode = btn.dataset.mode;
+        this.selectLevel(lvl, mode);
+      });
+    });
+
+    // Reset Progress Button
+    document.getElementById('btn-reset-progress')?.addEventListener('click', () => {
+      if (confirm('Reset unlocked levels and coins back to Sector 1?')) {
+        this.resetProgress();
+      }
+    });
+
+    // Victory Modal Action Buttons
+    document.getElementById('btn-victory-next')?.addEventListener('click', () => {
+      document.getElementById('level-complete-modal')?.classList.remove('active');
+      if (this.currentLevel < 3) {
+        this.selectLevel(this.currentLevel + 1, 'space');
+      } else {
+        this.transitionToState('MAIN_MENU');
+      }
+    });
+
+    document.getElementById('btn-victory-replay')?.addEventListener('click', () => {
+      document.getElementById('level-complete-modal')?.classList.remove('active');
+      this.selectLevel(this.currentLevel, 'surface');
+    });
+
+    document.getElementById('btn-victory-menu')?.addEventListener('click', () => {
+      document.getElementById('level-complete-modal')?.classList.remove('active');
+      this.transitionToState('MAIN_MENU');
+    });
+
+    // Legacy Fallbacks
+    document.getElementById('btn-start-space')?.addEventListener('click', () => {
+      this.selectLevel(1, 'space');
     });
 
     document.getElementById('btn-start-surface')?.addEventListener('click', () => {
-      this.audio.init();
-      this.initSurfaceLevel();
-      this.transitionToState('PLAYING');
+      this.selectLevel(1, 'surface');
     });
 
     document.getElementById('btn-menu-controls')?.addEventListener('click', () => {
@@ -802,10 +1199,11 @@ class VectorOdysseyGame {
         e.stopPropagation();
         e.currentTarget?.blur();
       }
+      this.audio.init();
       if (this.state === 'PLAYING') {
         this.player.isAttacking = false;
         this.player.animTimer = 0;
-        this.player.jumpBufferTimer = 0.2;
+        this.player.jumpBufferTimer = 0.25;
         this.triggerJump();
       }
     };
@@ -817,6 +1215,7 @@ class VectorOdysseyGame {
         e.stopPropagation();
         e.currentTarget?.blur();
       }
+      this.audio.init();
       if (this.state === 'PLAYING') {
         this.triggerAttack();
       }
@@ -834,6 +1233,7 @@ class VectorOdysseyGame {
     // Bind Attack Buttons (HUD & On-Screen Touch Gamepad)
     const btnAttack = document.getElementById('btn-attack-action');
     btnAttack?.addEventListener('click', handleAttackAction);
+    btnAttack?.addEventListener('touchstart', handleAttackAction, { passive: false });
 
     const touchAttack = document.getElementById('touch-attack');
     touchAttack?.addEventListener('click', handleAttackAction);
@@ -888,7 +1288,7 @@ class VectorOdysseyGame {
         if (this.state === 'SPACE_FLIGHT') {
           this.audio.startThrusterHum();
         } else if (this.state === 'PLAYING') {
-          this.player.jumpBufferTimer = 0.15;
+          this.player.jumpBufferTimer = 0.25;
           this.triggerJump();
         }
       }
@@ -912,7 +1312,7 @@ class VectorOdysseyGame {
         } else if (this.state === 'LANDING') {
           this.skipLanding();
         } else if (this.state === 'PLAYING') {
-          this.player.jumpBufferTimer = 0.15;
+          this.player.jumpBufferTimer = 0.25;
           this.triggerJump();
         }
       }
@@ -948,8 +1348,8 @@ class VectorOdysseyGame {
         this.keys.jump = false;
         if (this.state === 'SPACE_FLIGHT') {
           this.audio.stopThrusterHum();
-        } else if (this.state === 'PLAYING' && this.player.vy < -150) {
-          this.player.vy *= 0.5;
+        } else if (this.state === 'PLAYING' && this.player.vy < -280) {
+          this.player.vy *= 0.75;
         }
       }
       if (e.code === 'KeyS' || e.code === 'ArrowDown') {
@@ -967,8 +1367,8 @@ class VectorOdysseyGame {
         this.keys.boost = false;
         this.keys.jump = false;
         this.ship.boostActive = false;
-        if (this.state === 'PLAYING' && this.player.vy < -150) {
-          this.player.vy *= 0.5;
+        if (this.state === 'PLAYING' && this.player.vy < -280) {
+          this.player.vy *= 0.75;
         }
       }
     });
@@ -1357,7 +1757,7 @@ class VectorOdysseyGame {
 
   checkPlanetApproach() {
     const s = this.ship;
-    const dest = this.cygnusPrime;
+    const dest = this.targetPlanet || this.cygnusPrime;
     const dist = Math.hypot(dest.x - s.x, dest.y - s.y);
 
     if (dist <= dest.landingRadius) {
@@ -1368,7 +1768,7 @@ class VectorOdysseyGame {
 
   updateFlightHUD() {
     const s = this.ship;
-    const dest = this.cygnusPrime;
+    const dest = this.targetPlanet || this.cygnusPrime;
 
     const shieldBar = document.getElementById('hud-shield-bar');
     const shieldText = document.getElementById('hud-shield-text');
@@ -1640,62 +2040,100 @@ class VectorOdysseyGame {
   // --------------------------------------------------------------------------
   triggerJump() {
     const cooldown = typeof this.player.jumpCooldown === 'number' ? this.player.jumpCooldown : 0;
-    const canJump = (this.player.onGround || (this.player.coyoteTimer && this.player.coyoteTimer > 0)) &&
-                    cooldown <= 0 &&
-                    !this.player.isAttacking;
+    const canGroundJump = (this.player.onGround || (this.player.coyoteTimer && this.player.coyoteTimer > 0)) && cooldown <= 0;
+    const canDoubleJump = !canGroundJump && this.player.doubleJumpAvailable && cooldown <= 0;
 
-    if (canJump) {
+    if (canGroundJump) {
       this.player.vy = this.player.jumpImpulse;
       this.player.onGround = false;
       this.player.coyoteTimer = 0;
       this.player.jumpBufferTimer = 0;
-      this.player.jumpCooldown = 0.15;
+      this.player.jumpCooldown = 0.12;
+      this.player.doubleJumpAvailable = true;
       this.player.justLandedTimer = 0;
+      this.player.isAttacking = false;
       this.audio.playJump();
 
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 12; i++) {
         this.particles.push({
           x: this.player.x + this.player.w / 2,
           y: this.player.y + this.player.h,
-          vx: (Math.random() - 0.5) * 120,
-          vy: Math.random() * 60 + 20,
+          vx: (Math.random() - 0.5) * 160,
+          vy: Math.random() * 40 + 10,
           life: 0.35,
           maxLife: 0.35,
           color: '#00f3ff',
           size: Math.random() * 3 + 2
         });
       }
+    } else if (canDoubleJump) {
+      this.player.vy = this.player.jumpImpulse * 0.95;
+      this.player.doubleJumpAvailable = false;
+      this.player.jumpCooldown = 0.12;
+      this.player.jumpBufferTimer = 0;
+      this.player.isAttacking = false;
+      this.audio.playBoost();
+
+      this.floatingTexts.push({
+        text: '▲ JETPACK JUMP',
+        x: this.player.x + this.player.w / 2,
+        y: this.player.y - 10,
+        life: 0.7,
+        maxLife: 0.7,
+        color: '#38bdf8'
+      });
+
+      for (let i = 0; i < 16; i++) {
+        this.particles.push({
+          x: this.player.x + this.player.w / 2 + (Math.random() - 0.5) * 16,
+          y: this.player.y + this.player.h - 10,
+          vx: (Math.random() - 0.5) * 100,
+          vy: Math.random() * 180 + 100,
+          life: 0.4,
+          maxLife: 0.4,
+          color: Math.random() > 0.3 ? '#00f3ff' : '#ffffff',
+          size: Math.random() * 4 + 2
+        });
+      }
     }
   }
 
   triggerAttack() {
-    if (this.player.isAttacking) return;
+    if (this.player.isAttacking && this.player.animTimer < 0.3) return;
     this.player.isAttacking = true;
     this.player.animState = 'attack';
     this.player.animFrame = 0;
     this.player.animTimer = 0;
     this.audio.playAttackCharge();
 
-    // Beam spawn / particle charge
+    this.floatingTexts.push({
+      text: '💥 KAMEHAMEHA!',
+      x: this.player.x + this.player.w / 2,
+      y: this.player.y - 20,
+      life: 0.8,
+      maxLife: 0.8,
+      color: '#00f3ff'
+    });
+
     setTimeout(() => {
       this.audio.playAttackBlast();
+      this.screenShake = 0.28;
 
-      // Energy blast particles shooting forward in facing direction
-      const blastX = this.player.x + (this.player.facing > 0 ? this.player.w + 40 : -40);
+      const blastX = this.player.x + (this.player.facing > 0 ? this.player.w + 30 : -30);
       const blastY = this.player.y + 36;
-      for (let i = 0; i < 35; i++) {
+      for (let i = 0; i < 40; i++) {
         this.particles.push({
           x: blastX,
-          y: blastY + (Math.random() - 0.5) * 20,
-          vx: this.player.facing * (Math.random() * 450 + 250),
-          vy: (Math.random() - 0.5) * 60,
-          life: 0.5,
-          maxLife: 0.5,
-          color: '#00f3ff',
+          y: blastY + (Math.random() - 0.5) * 25,
+          vx: this.player.facing * (Math.random() * 550 + 350),
+          vy: (Math.random() - 0.5) * 80,
+          life: 0.55,
+          maxLife: 0.55,
+          color: Math.random() > 0.3 ? '#00f3ff' : '#ffffff',
           size: Math.random() * 5 + 2
         });
       }
-    }, 240);
+    }, 140);
   }
 
   tryInteract() {
@@ -1829,43 +2267,86 @@ class VectorOdysseyGame {
       p.vx = Math.sign(p.vx) * p.speed;
     }
 
-    // Gravity Zones (High Gravity Zone: x 840 to 1220)
+    // Dynamic Level Gravity Settings & Anomalies
+    const lvl = this.currentLevel || 1;
     let gravityReadout = 'g = 9.8 m/s²';
-    if (p.x >= 840 && p.x <= 1220) {
-      p.gravity = 1550;
-      gravityReadout = 'g = 15.8 m/s² [ANOMALOUS HIGH GRAVITY]';
-      if (Math.random() < 0.25) {
+
+    if (lvl === 1) {
+      // Cygnus Prime: 9.8 m/s² base, with High Gravity Zone from x 840 to 1220
+      if (p.x >= 840 && p.x <= 1220) {
+        p.gravity = 1550;
+        gravityReadout = 'g = 15.8 m/s² [ANOMALOUS HIGH GRAVITY]';
+        if (Math.random() < 0.25) {
+          this.particles.push({
+            x: p.x + (Math.random() - 0.5) * 50,
+            y: p.y - 30,
+            vx: 0,
+            vy: Math.random() * 60 + 90,
+            life: 0.35,
+            maxLife: 0.35,
+            color: 'rgba(168, 85, 247, 0.5)',
+            size: Math.random() * 2.5 + 1
+          });
+        }
+      } else {
+        p.gravity = 980;
+        gravityReadout = 'g = 9.8 m/s² [STANDARD GRAVITY]';
+      }
+
+      // Quantum Anti-Gravity Jump Lift Pad (x: 1040, y: 646)
+      if (p.x >= 1010 && p.x <= 1080 && p.y + p.h >= 640 && p.y + p.h <= 670) {
+        p.vy = -740;
+        p.onGround = false;
+        this.audio.playJump();
+        for (let i = 0; i < 14; i++) {
+          this.particles.push({
+            x: 1045 + (Math.random() - 0.5) * 35,
+            y: 648,
+            vx: (Math.random() - 0.5) * 50,
+            vy: -Math.random() * 160 - 120,
+            life: 0.4,
+            maxLife: 0.4,
+            color: '#00f3ff',
+            size: Math.random() * 3 + 1.5
+          });
+        }
+      }
+    } else if (lvl === 2) {
+      // Crimson Frontier: Low Gravity 4.8 m/s² allows massive acrobatic jumps across lava chasms!
+      p.gravity = 480;
+      gravityReadout = 'g = 4.8 m/s² [VOLCANIC LOW GRAVITY]';
+      if (Math.random() < 0.2) {
         this.particles.push({
-          x: p.x + (Math.random() - 0.5) * 50,
-          y: p.y - 30,
-          vx: 0,
-          vy: Math.random() * 60 + 90,
+          x: p.x + (Math.random() - 0.5) * 35,
+          y: p.y + p.h,
+          vx: (Math.random() - 0.5) * 25,
+          vy: -Math.random() * 45 - 20,
           life: 0.35,
           maxLife: 0.35,
-          color: 'rgba(168, 85, 247, 0.5)',
+          color: 'rgba(239, 68, 68, 0.5)',
           size: Math.random() * 2.5 + 1
         });
       }
-    } else {
-      p.gravity = 980;
-    }
-
-    // Quantum Anti-Gravity Jump Lift Pad (x: 1040, y: 646)
-    if (p.x >= 1010 && p.x <= 1080 && p.y + p.h >= 640 && p.y + p.h <= 670) {
-      p.vy = -740;
-      p.onGround = false;
-      this.audio.playJump();
-      for (let i = 0; i < 14; i++) {
-        this.particles.push({
-          x: 1045 + (Math.random() - 0.5) * 35,
-          y: 648,
-          vx: (Math.random() - 0.5) * 50,
-          vy: -Math.random() * 160 - 120,
-          life: 0.4,
-          maxLife: 0.4,
-          color: '#00f3ff',
-          size: Math.random() * 3 + 1.5
-        });
+    } else if (lvl === 3) {
+      // Eclipse Core: 9.2 m/s² base, with Singularity Inverted Gravity Field from x 1200 to 1650
+      if (p.x >= 1200 && p.x <= 1650) {
+        p.gravity = -360;
+        gravityReadout = 'g = -3.6 m/s² [INVERTED GRAVITY FIELD]';
+        if (Math.random() < 0.3) {
+          this.particles.push({
+            x: p.x + (Math.random() - 0.5) * 45,
+            y: p.y + p.h + 10,
+            vx: (Math.random() - 0.5) * 25,
+            vy: -Math.random() * 85 - 60,
+            life: 0.45,
+            maxLife: 0.45,
+            color: 'rgba(192, 132, 252, 0.6)',
+            size: Math.random() * 3 + 1.2
+          });
+        }
+      } else {
+        p.gravity = 920;
+        gravityReadout = 'g = 9.2 m/s² [SINGULARITY CITADEL]';
       }
     }
 
@@ -1891,6 +2372,7 @@ class VectorOdysseyGame {
       this.audio.playLand();
       p.justLandedTimer = 0.14; // Landing crouch pose window
       p.coyoteTimer = 0;
+      p.doubleJumpAvailable = true;
       if (p.jumpBufferTimer > 0 && !p.isAttacking) {
         this.triggerJump();
       }
@@ -2004,6 +2486,7 @@ class VectorOdysseyGame {
             this.player.y = slopeY - this.player.h;
             this.player.vy = 0;
             this.player.onGround = true;
+            this.player.doubleJumpAvailable = true;
           }
         }
         continue;
@@ -2021,6 +2504,7 @@ class VectorOdysseyGame {
           this.player.y = plat.y - this.player.h;
           this.player.vy = 0;
           this.player.onGround = true;
+          this.player.doubleJumpAvailable = true;
         }
         continue;
       }
@@ -2036,6 +2520,7 @@ class VectorOdysseyGame {
           this.player.y = plat.y - this.player.h;
           this.player.vy = 0;
           this.player.onGround = true;
+          this.player.doubleJumpAvailable = true;
         } else if (this.player.vy < 0) {
           this.player.y = plat.y + plat.h;
           this.player.vy = 0;
@@ -2170,11 +2655,12 @@ class VectorOdysseyGame {
 
       // Check Kamehameha Beam Collision (Attack Frame 2)
       if (this.player.isAttacking && this.player.animFrame === 2) {
-        const beamMinX = this.player.facing > 0 ? this.player.x + 20 : this.player.x - 440;
-        const beamMaxX = this.player.facing > 0 ? this.player.x + 440 : this.player.x - 20;
+        const beamMinX = this.player.facing > 0 ? this.player.x + 20 : this.player.x - 680;
+        const beamMaxX = this.player.facing > 0 ? this.player.x + 680 : this.player.x - 20;
         const beamY = this.player.y + 36;
-        if (e.x + e.w > beamMinX && e.x < beamMaxX && Math.abs(e.y + e.h / 2 - beamY) < 45) {
-          e.hp -= 40 * dt * 60;
+        if (e.x + e.w > beamMinX && e.x < beamMaxX && Math.abs(e.y + e.h / 2 - beamY) < 48) {
+          e.hp -= 50 * dt * 60;
+          this.screenShake = 6;
           this.particles.push({
             x: e.x + e.w / 2,
             y: e.y + e.h / 2,
@@ -2188,17 +2674,33 @@ class VectorOdysseyGame {
 
           if (e.hp <= 0) {
             e.alive = false;
+            this.enemiesDefeated++;
+            this.coins += 35;
+            this.saveProgress();
+            this.updateDashboardUI();
+            this.screenShake = 14;
             this.audio.playImpact();
+            this.audio.playAttackBlast();
+
+            this.floatingTexts.push({
+              text: '+35 🪙 VAPORIZED!',
+              x: e.x + e.w / 2,
+              y: e.y - 15,
+              life: 1.0,
+              maxLife: 1.0,
+              color: '#facc15'
+            });
+
             if (this.crystalsCollected < this.totalCrystals) {
               this.crystalsCollected++;
               this.updateHUD();
             }
-            for (let i = 0; i < 25; i++) {
+            for (let i = 0; i < 28; i++) {
               this.particles.push({
                 x: e.x + e.w / 2,
                 y: e.y + e.h / 2,
-                vx: (Math.random() - 0.5) * 260,
-                vy: (Math.random() - 0.5) * 260,
+                vx: (Math.random() - 0.5) * 280,
+                vy: (Math.random() - 0.5) * 280,
                 life: 0.6,
                 maxLife: 0.6,
                 color: Math.random() > 0.4 ? '#00f3ff' : '#facc15',
@@ -2270,7 +2772,7 @@ class VectorOdysseyGame {
       }
     }
 
-    // Ancient Gate
+    // Ancient Gate Completion Trigger
     if (this.ancientGate) {
       this.ancientGate.rotation += dt * 1.5;
       const gateCenterX = this.ancientGate.x + this.ancientGate.w / 2;
@@ -2279,23 +2781,16 @@ class VectorOdysseyGame {
         this.player.x + this.player.w > gateCenterX - 40
       ) {
         this.ancientGate.activated = true;
-        this.checkpointReached = true;
-        this.audio.playCheckpointReached();
-        this.screens.checkpointBanner.classList.add('active');
-
-        for (let i = 0; i < 60; i++) {
-          this.particles.push({
-            x: gateCenterX,
-            y: this.ancientGate.y + this.ancientGate.h / 2,
-            vx: (Math.random() - 0.5) * 350,
-            vy: (Math.random() - 0.5) * 350,
-            life: 1.5,
-            maxLife: 1.5,
-            color: Math.random() > 0.4 ? '#00f3ff' : '#facc15',
-            size: Math.random() * 5 + 2
-          });
-        }
+        this.completeLevel();
       }
+    }
+
+    // Floating combat & reward texts
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = this.floatingTexts[i];
+      ft.life -= dt;
+      ft.y -= dt * 35;
+      if (ft.life <= 0) this.floatingTexts.splice(i, 1);
     }
 
     // Particles
@@ -2341,6 +2836,19 @@ class VectorOdysseyGame {
   draw() {
     this.ctx.clearRect(0, 0, this.V_WIDTH, this.V_HEIGHT);
 
+    let shakeX = 0;
+    let shakeY = 0;
+    if (this.screenShake > 0) {
+      shakeX = (Math.random() - 0.5) * this.screenShake;
+      shakeY = (Math.random() - 0.5) * this.screenShake;
+      this.screenShake = Math.max(0, this.screenShake - 0.6);
+    }
+
+    this.ctx.save();
+    if (shakeX !== 0 || shakeY !== 0) {
+      this.ctx.translate(shakeX, shakeY);
+    }
+
     if (this.state === 'MAIN_MENU') {
       this.drawSpaceScene();
     } else if (this.state === 'SPACE_FLIGHT' || (this.state === 'PAUSED' && this.previousState === 'SPACE_FLIGHT')) {
@@ -2350,6 +2858,8 @@ class VectorOdysseyGame {
     } else if (this.state === 'PLAYING' || (this.state === 'PAUSED' && this.previousState === 'PLAYING')) {
       this.drawPlanetSurface();
     }
+
+    this.ctx.restore();
   }
 
   // --------------------------------------------------------------------------
@@ -2783,21 +3293,41 @@ class VectorOdysseyGame {
   // --------------------------------------------------------------------------
   drawPlanetSurface() {
     const cam = this.cameraX;
+    const lvl = this.currentLevel || 1;
 
+    // Atmospheric Sky Gradient according to planetary level
     const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.V_HEIGHT);
-    skyGrad.addColorStop(0, '#020617');
-    skyGrad.addColorStop(0.4, '#051336');
-    skyGrad.addColorStop(0.8, '#0b2959');
-    skyGrad.addColorStop(1, '#071e3d');
+    if (lvl === 2) {
+      // Sector 02: Crimson Frontier (Volcanic Magma Horizon)
+      skyGrad.addColorStop(0, '#1c0505');
+      skyGrad.addColorStop(0.35, '#3b0b0b');
+      skyGrad.addColorStop(0.7, '#601111');
+      skyGrad.addColorStop(1, '#7f1d1d');
+    } else if (lvl === 3) {
+      // Sector 03: Eclipse Core (Singularity Deep Violet & Ultraviolet Glow)
+      skyGrad.addColorStop(0, '#090014');
+      skyGrad.addColorStop(0.35, '#1e053a');
+      skyGrad.addColorStop(0.7, '#3b0764');
+      skyGrad.addColorStop(1, '#581c87');
+    } else {
+      // Sector 01: Cygnus Prime (Deep Cosmic Cyan Horizon)
+      skyGrad.addColorStop(0, '#020617');
+      skyGrad.addColorStop(0.4, '#051336');
+      skyGrad.addColorStop(0.8, '#0b2959');
+      skyGrad.addColorStop(1, '#071e3d');
+    }
     this.ctx.fillStyle = skyGrad;
     this.ctx.fillRect(0, 0, this.V_WIDTH, this.V_HEIGHT);
 
     const moonX = this.V_WIDTH * 0.75 - cam * 0.04;
     const moonY = 180;
-    this.drawNebulaCloud(moonX, moonY, 70, 'rgba(56, 189, 248, 0.4)');
+    const moonGlow = lvl === 2 ? 'rgba(239, 68, 68, 0.4)' : (lvl === 3 ? 'rgba(192, 132, 252, 0.4)' : 'rgba(56, 189, 248, 0.4)');
+    this.drawNebulaCloud(moonX, moonY, 70, moonGlow);
 
-    this.drawParallaxMountains(cam * 0.15, '#041029', 420);
-    this.drawParallaxMonoliths(cam * 0.35, '#071838', 500);
+    const mountainColor = lvl === 2 ? '#2a0808' : (lvl === 3 ? '#160228' : '#041029');
+    const monolithColor = lvl === 2 ? '#3d0a0a' : (lvl === 3 ? '#23043f' : '#071838');
+    this.drawParallaxMountains(cam * 0.15, mountainColor, 420);
+    this.drawParallaxMonoliths(cam * 0.35, monolithColor, 500);
 
     this.ctx.save();
     this.ctx.translate(-cam, 0);
@@ -2832,6 +3362,12 @@ class VectorOdysseyGame {
 
     // 16-Frame Animated Character (Goku: Idle, Run, Jump, Attack)
     this.drawAnimatedPlayer();
+
+    // Kamehameha Energy Blast Wave
+    this.drawKamehamehaBeam();
+
+    // Floating combat & reward numbers
+    this.drawFloatingTexts();
 
     this.drawParticles();
 
@@ -3151,6 +3687,127 @@ class VectorOdysseyGame {
       this.ctx.strokeRect(-p.w / 2, -p.h, p.w, p.h);
     }
 
+    this.ctx.restore();
+  }
+
+  drawKamehamehaBeam() {
+    const p = this.player;
+    if (!p.isAttacking) return;
+
+    this.ctx.save();
+    const handX = p.facing > 0 ? p.x + p.w + 6 : p.x - 6;
+    const handY = p.y + 36;
+
+    if (p.animFrame < 2) {
+      // Charging Phase (Frames 0 & 1): Pulsing Kamehameha energy orb gathering at hands
+      const chargeRadius = (p.animFrame + 1) * 14 + Math.sin(this.gameTime * 25) * 4;
+      const grad = this.ctx.createRadialGradient(handX, handY, 2, handX, handY, chargeRadius);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.35, '#00f3ff');
+      grad.addColorStop(0.7, 'rgba(56, 189, 248, 0.4)');
+      grad.addColorStop(1, 'transparent');
+      this.ctx.fillStyle = grad;
+      this.ctx.beginPath();
+      this.ctx.arc(handX, handY, chargeRadius, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Glowing concentric energy containment rings
+      this.ctx.strokeStyle = '#38bdf8';
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      this.ctx.arc(handX, handY, chargeRadius * 1.3, 0, Math.PI * 2);
+      this.ctx.stroke();
+
+      this.ctx.strokeStyle = '#00f3ff';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.arc(handX, handY, chargeRadius * 1.6, 0, Math.PI * 2);
+      this.ctx.stroke();
+    } else {
+      // Beam blast phase (Frame 2): Massive full-screen Kamehameha energy wave!
+      const beamLength = 680;
+      const startX = handX;
+      const endX = p.facing > 0 ? startX + beamLength : startX - beamLength;
+      const bMinX = Math.min(startX, endX);
+      const bMaxX = Math.max(startX, endX);
+
+      // 1. Broad radiant cyan aura
+      this.ctx.shadowColor = '#00f3ff';
+      this.ctx.shadowBlur = 28;
+
+      const beamGrad = this.ctx.createLinearGradient(0, handY - 26, 0, handY + 26);
+      beamGrad.addColorStop(0, 'rgba(0, 243, 255, 0.1)');
+      beamGrad.addColorStop(0.25, 'rgba(0, 243, 255, 0.6)');
+      beamGrad.addColorStop(0.5, '#ffffff');
+      beamGrad.addColorStop(0.75, 'rgba(0, 243, 255, 0.6)');
+      beamGrad.addColorStop(1, 'rgba(0, 243, 255, 0.1)');
+
+      this.ctx.fillStyle = beamGrad;
+      this.ctx.fillRect(bMinX, handY - 22, bMaxX - bMinX, 44);
+
+      // 2. Cyan Laser Core
+      this.ctx.strokeStyle = '#38bdf8';
+      this.ctx.lineWidth = 24;
+      this.ctx.beginPath();
+      this.ctx.moveTo(startX, handY);
+      this.ctx.lineTo(endX, handY);
+      this.ctx.stroke();
+
+      // 3. Blinding White Laser Beam Center
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 12;
+      this.ctx.beginPath();
+      this.ctx.moveTo(startX, handY);
+      this.ctx.lineTo(endX, handY);
+      this.ctx.stroke();
+
+      // 4. Helical electric energy spirals along beam
+      this.ctx.shadowBlur = 0;
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      this.ctx.lineWidth = 2.5;
+      this.ctx.beginPath();
+      for (let x = bMinX; x <= bMaxX; x += 15) {
+        const sineOffset = Math.sin((x * 0.06) - this.gameTime * 25) * 16;
+        if (x === bMinX) this.ctx.moveTo(x, handY + sineOffset);
+        else this.ctx.lineTo(x, handY + sineOffset);
+      }
+      this.ctx.stroke();
+
+      // 5. Blast Sphere at Goku's Palms
+      const sphereGrad = this.ctx.createRadialGradient(handX, handY, 4, handX, handY, 36);
+      sphereGrad.addColorStop(0, '#ffffff');
+      sphereGrad.addColorStop(0.5, '#00f3ff');
+      sphereGrad.addColorStop(1, 'transparent');
+      this.ctx.fillStyle = sphereGrad;
+      this.ctx.beginPath();
+      this.ctx.arc(handX, handY, 36, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // 6. Impact Detonation Burst at Beam Tip
+      const tipGrad = this.ctx.createRadialGradient(endX, handY, 6, endX, handY, 48);
+      tipGrad.addColorStop(0, '#ffffff');
+      tipGrad.addColorStop(0.5, '#38bdf8');
+      tipGrad.addColorStop(1, 'transparent');
+      this.ctx.fillStyle = tipGrad;
+      this.ctx.beginPath();
+      this.ctx.arc(endX, handY, 48, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+    this.ctx.restore();
+  }
+
+  drawFloatingTexts() {
+    this.ctx.save();
+    this.ctx.font = 'bold 16px Orbitron, sans-serif';
+    this.ctx.textAlign = 'center';
+    for (const ft of this.floatingTexts) {
+      const alpha = Math.max(0, ft.life / ft.maxLife);
+      this.ctx.globalAlpha = alpha;
+      this.ctx.fillStyle = ft.color || '#00f3ff';
+      this.ctx.shadowColor = ft.color || '#00f3ff';
+      this.ctx.shadowBlur = 10;
+      this.ctx.fillText(ft.text, ft.x, ft.y);
+    }
     this.ctx.restore();
   }
 

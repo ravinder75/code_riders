@@ -18,53 +18,168 @@
     <!-- UI Overlay Layer for HUD and Modals -->
     <div id="ui-overlay">
 
-      <!-- 0. MAIN TITLE / START INTERFACE MENU -->
+      <!-- 0. MAIN TITLE / START INTERFACE DASHBOARD -->
       <div id="main-menu" class="screen-view active">
-        <div class="menu-container">
-          <div class="menu-badge">RESPAWN 2.0 // TEAM 6: CODE RIDERS</div>
-          <h1 class="menu-title">VECTOR ODYSSEY</h1>
-          <div class="menu-subtitle">WORLDS OF GRAVITY &bull; SECTOR EXPEDITION</div>
-          
-          <div class="menu-threat-alert">
-            <span class="pulse-dot red-dot"></span>
-            <span>TACTICAL WARNING: HOSTILE PURSUER DRONES DETECTED IN DEEP SPACE</span>
-          </div>
-
-          <div class="menu-card-grid">
-            <div class="menu-card">
-              <div class="card-icon">🚀</div>
-              <h3>SPACE FLIGHT</h3>
-              <p>Evade chasing hunter interceptors, dodge dense asteroid fields, and sling around gravity wells to reach Cygnus Prime.</p>
+        <div class="menu-container dashboard-container">
+          <!-- Top Telemetry & Wallet Bar -->
+          <div class="dashboard-topbar">
+            <div class="dashboard-badge">RESPAWN 2.0 // CODE RIDERS TEAM 6</div>
+            <div class="dashboard-wallet" id="menu-wallet-badge">
+              <span class="coin-icon">🪙</span>
+              <span class="coin-amount" id="dashboard-coin-amount">100</span>
+              <span class="coin-label">STARDUST COINS</span>
             </div>
-            <div class="menu-card">
-              <div class="card-icon">🪐</div>
-              <h3>CYGNUS EXPEDITION</h3>
-              <p>Conquer 30° sloped geometry, quantum jump pads, and defeat cyber-sentinels using your Kamehameha blast wave.</p>
-            </div>
-          </div>
-
-          <div class="menu-actions">
-            <button id="btn-start-space" class="btn btn-primary btn-large">
-              <span>🚀 LAUNCH EXPEDITION (OUTER SPACE)</span>
-            </button>
-            <button id="btn-start-surface" class="btn btn-secondary btn-large">
-              <span>🪐 DIRECT PLANET EXPLORATION</span>
-            </button>
-            <div class="menu-sub-actions">
-              <button id="btn-menu-controls" class="btn btn-small btn-secondary">
-                <span>🎮 PILOT MANUAL & CONTROLS</span>
-              </button>
+            <div class="dashboard-top-actions">
               <button id="btn-menu-audio" class="btn btn-small btn-secondary">
                 <span id="menu-audio-icon">🔊 SOUND: ON</span>
               </button>
+              <button id="btn-menu-controls" class="btn btn-small btn-secondary">
+                <span>🎮 PILOT MANUAL</span>
+              </button>
+              <button id="btn-reset-progress" class="btn btn-small btn-secondary" title="Reset Game Progress to Level 1">
+                <span>🔄 RESET</span>
+              </button>
             </div>
           </div>
 
-          <div class="menu-telemetry-strip">
-            <span>VESSEL: ODYSSEY-01</span> &bull; 
-            <span>TARGET: CYGNUS PRIME</span> &bull; 
-            <span>GRAVITY: 9.8 m/s² (VARIABLE)</span> &bull; 
-            <span>COMBAT: KAMEHAMEHA READY</span>
+          <!-- Hero Branding -->
+          <div class="dashboard-hero">
+            <h1 class="menu-title">VECTOR ODYSSEY</h1>
+            <div class="menu-subtitle">WORLDS OF GRAVITY &bull; SECTOR EXPEDITION DASHBOARD</div>
+            
+            <div class="menu-threat-alert">
+              <span class="pulse-dot red-dot"></span>
+              <span>TACTICAL ALERT: HOSTILE CHASER DRONES DETECTED IN DEEP SPACE &bull; EVADE AND REACH THE WORLDS</span>
+            </div>
+          </div>
+
+          <!-- Sector / Level Selection Dashboard (Requirement: Level 1 -> Unlock Level 2 -> Unlock Level 3) -->
+          <div class="level-dashboard-grid">
+            <!-- LEVEL 1: CYGNUS PRIME -->
+            <div class="level-card level-card-cygnus unlocked" id="card-level-1">
+              <div class="level-card-header">
+                <span class="level-tag">SECTOR 01</span>
+                <span class="level-status-pill status-unlocked" id="badge-level-1">ACTIVE</span>
+              </div>
+              <div class="level-card-preview preview-cygnus">
+                <div class="planet-sphere orb-cygnus"></div>
+                <div class="preview-overlay-info">
+                  <span class="preview-gravity">g = 9.8 m/s² (NORMAL)</span>
+                  <span class="preview-stars" id="stars-level-1">★★★</span>
+                </div>
+              </div>
+              <div class="level-card-body">
+                <h3 class="level-card-title">CYGNUS PRIME</h3>
+                <div class="level-card-subtitle">Vector Genesis &bull; Inclined Geometry</div>
+                <p class="level-card-desc">
+                  Evade chasing interceptors across the asteroid field. On the planet, conquer 30° sloped geometry, high-gravity anomalies, and vaporize cyber-sentinels with your Kamehameha!
+                </p>
+                <div class="level-meta-row">
+                  <span>REWARD: 🪙 150+ COINS</span>
+                  <span class="meta-tag">DIFFICULTY: NORMAL</span>
+                </div>
+              </div>
+              <div class="level-card-actions">
+                <button class="btn btn-primary btn-play-level" data-level="1" data-mode="space">
+                  <span>🚀 LAUNCH SPACE FLIGHT</span>
+                </button>
+                <button class="btn btn-secondary btn-play-level" data-level="1" data-mode="surface">
+                  <span>🪐 EXPLORE SURFACE</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- LEVEL 2: CRIMSON FRONTIER -->
+            <div class="level-card level-card-crimson locked" id="card-level-2">
+              <div class="level-card-header">
+                <span class="level-tag">SECTOR 02</span>
+                <span class="level-status-pill status-locked" id="badge-level-2">🔒 LOCKED</span>
+              </div>
+              <div class="level-card-preview preview-crimson">
+                <div class="planet-sphere orb-crimson"></div>
+                <div class="preview-overlay-info">
+                  <span class="preview-gravity">g = 4.5 m/s² (LOW GRAV)</span>
+                  <span class="preview-stars" id="stars-level-2">☆☆☆</span>
+                </div>
+                <div class="lock-overlay" id="lock-overlay-2">
+                  <span class="lock-icon">🔒</span>
+                  <span class="lock-text">Complete Level 1 to Unlock</span>
+                </div>
+              </div>
+              <div class="level-card-body">
+                <h3 class="level-card-title">CRIMSON FRONTIER</h3>
+                <div class="level-card-subtitle">Solar Flare Ridge &bull; Low Gravity Jumps</div>
+                <p class="level-card-desc">
+                  Extreme heat sector with high-speed pursuer swarms! On the surface, leap across floating volcanic basalt bridges over lava geysers with soaring low-gravity leaps and fight flying magma drones.
+                </p>
+                <div class="level-meta-row">
+                  <span>REWARD: 🪙 250+ COINS</span>
+                  <span class="meta-tag meta-hard">DIFFICULTY: HARD</span>
+                </div>
+              </div>
+              <div class="level-card-actions">
+                <button class="btn btn-primary btn-play-level" data-level="2" data-mode="space" disabled>
+                  <span>🚀 LAUNCH SPACE FLIGHT</span>
+                </button>
+                <button class="btn btn-secondary btn-play-level" data-level="2" data-mode="surface" disabled>
+                  <span>🪐 EXPLORE SURFACE</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- LEVEL 3: ECLIPSE CORE -->
+            <div class="level-card level-card-eclipse locked" id="card-level-3">
+              <div class="level-card-header">
+                <span class="level-tag">SECTOR 03</span>
+                <span class="level-status-pill status-locked" id="badge-level-3">🔒 LOCKED</span>
+              </div>
+              <div class="level-card-preview preview-eclipse">
+                <div class="planet-sphere orb-eclipse"></div>
+                <div class="preview-overlay-info">
+                  <span class="preview-gravity">INVERTED GRAVITY ZONES</span>
+                  <span class="preview-stars" id="stars-level-3">☆☆☆</span>
+                </div>
+                <div class="lock-overlay" id="lock-overlay-3">
+                  <span class="lock-icon">🔒</span>
+                  <span class="lock-text">Complete Level 2 to Unlock</span>
+                </div>
+              </div>
+              <div class="level-card-body">
+                <h3 class="level-card-title">ECLIPSE CORE</h3>
+                <div class="level-card-subtitle">Singularity Citadel &bull; Omega Gateway</div>
+                <p class="level-card-desc">
+                  Dark matter singularity surrounded by elite pursuers. Navigate shifting gravitational fields, quantum lift pads, and destroy the Heavy Gate Mech boss using maximum Kamehameha power!
+                </p>
+                <div class="level-meta-row">
+                  <span>REWARD: 🪙 400+ COINS</span>
+                  <span class="meta-tag meta-extreme">DIFFICULTY: EXTREME</span>
+                </div>
+              </div>
+              <div class="level-card-actions">
+                <button class="btn btn-primary btn-play-level" data-level="3" data-mode="space" disabled>
+                  <span>🚀 LAUNCH SPACE FLIGHT</span>
+                </button>
+                <button class="btn btn-secondary btn-play-level" data-level="3" data-mode="surface" disabled>
+                  <span>🪐 EXPLORE SURFACE</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pilot Directives Footer -->
+          <div class="dashboard-footer-strip">
+            <div class="telemetry-item">
+              <span class="item-lbl">COMBAT PROTOCOL:</span>
+              <span class="item-val">KAMEHAMEHA BLAST WAVE [J / Z / CLICK]</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="item-lbl">JETPACK JUMP:</span>
+              <span class="item-val">GROUND JUMP + ION DOUBLE JUMP [SPACE / W / ↑]</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="item-lbl">SPACE EVASION:</span>
+              <span class="item-val">AFTERBURNER BOOST [SPACE] &bull; TACTICAL RADAR [M]</span>
+            </div>
           </div>
         </div>
       </div>
@@ -116,9 +231,18 @@
             </div>
           </div>
 
+          <!-- Space Stardust Coins Box -->
+          <div class="hud-box hud-space-coins">
+            <span class="hud-label">STARDUST COINS:</span>
+            <span class="hud-value" id="hud-space-coin-count">🪙 100</span>
+          </div>
+
           <!-- Quick Audio / Map / Pause Actions -->
           <div class="hud-flight-actions">
-            <button id="btn-quick-land" class="btn btn-small btn-primary" title="Instant Touchdown on Cygnus Prime">
+            <button id="btn-fire-lasers" class="btn btn-small btn-primary btn-pulse-cyan" title="Fire High-Speed Twin Plasma Lasers [SPACE / CLICK / J]">
+              <span>⚡ FIRE CANNONS</span>
+            </button>
+            <button id="btn-quick-land" class="btn btn-small btn-secondary" title="Instant Touchdown on Cygnus Prime">
               <span>🪐 LAND NOW</span>
             </button>
             <button id="btn-toggle-map" class="btn btn-small btn-secondary" title="Toggle Sector Tactical Map">
@@ -147,13 +271,6 @@
             <span class="legend-item"><span class="legend-dot dot-planets"></span> WORLDS</span>
             <span class="legend-item"><span class="legend-dot dot-hazard"></span> HAZARDS</span>
           </div>
-        </div>
-
-        <!-- Center Objective Banner (Fade out after few seconds) -->
-        <div class="flight-mission-banner" id="flight-banner">
-          <div class="banner-tag">SECTOR EXPEDITION // DIRECT FLIGHT PROTOCOL</div>
-          <h2 class="banner-heading">FLY TO CYGNUS PRIME</h2>
-          <p class="banner-sub">Use your sector radar [M] to navigate through space hazards toward Cygnus Prime.</p>
         </div>
 
         <!-- Warning HUD message for collisions / gravity well -->
@@ -246,6 +363,11 @@
             <span class="hud-crystal-icons" id="hud-crystal-icons">◇◇◇◇◇</span>
           </div>
 
+          <div class="hud-box hud-coins">
+            <span class="hud-label">STARDUST COINS:</span>
+            <span class="hud-value" id="hud-coin-count">🪙 100</span>
+          </div>
+
           <div class="hud-actions">
             <button id="btn-jump-action" class="btn btn-small btn-primary" title="Jump Across Platforms [W / SPACE / ↑]">
               ⬆️ JUMP [SPACE]
@@ -263,8 +385,8 @@
         <div class="hud-bottom">
           <div class="hud-controls-hint">
             <span>[A] [D] / [←] [→] RUN</span> &bull; 
-            <span>[W] / [SPACE] / [↑] JUMP</span> &bull; 
-            <span style="color:#facc15">[J] / [Z] / [CLICK] ATTACK (KAMEHAMEHA)</span> &bull; 
+            <span style="color:#38bdf8; font-weight:700;">[W] / [SPACE] / [↑] JUMP + DOUBLE JUMP</span> &bull; 
+            <span style="color:#facc15; font-weight:700;">[J] / [Z] / [CLICK] KAMEHAMEHA BLAST</span> &bull; 
             <span>[E] INTERACT</span> &bull; 
             <span>[ESC] PAUSE</span>
           </div>
@@ -297,6 +419,72 @@
             <div class="banner-buttons">
               <button id="btn-checkpoint-fly" class="btn btn-primary">LAUNCH SPACESHIP AGAIN</button>
               <button id="btn-checkpoint-replay" class="btn btn-secondary">REPLAY SURFACE SECTOR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 🏆 LEVEL COMPLETE / CONGRATULATIONS MODAL -->
+        <div id="level-complete-modal" class="game-modal">
+          <div class="modal-box victory-box">
+            <div class="victory-header">
+              <div class="victory-badge">EXPEDITION COMPLETE // SECTOR PROTOCOL CLEARED</div>
+              <h2 class="victory-title" id="victory-title">CONGRATULATIONS!</h2>
+              <p class="victory-subtitle" id="victory-subtitle">Sector 1: Cygnus Prime Conquered!</p>
+            </div>
+
+            <!-- 3 Animated Glowing Stars -->
+            <div class="victory-stars" id="victory-stars">
+              <span class="star active">★</span>
+              <span class="star active">★</span>
+              <span class="star active">★</span>
+            </div>
+
+            <!-- Reward Coins Breakdown -->
+            <div class="victory-rewards-grid">
+              <div class="victory-reward-card">
+                <span class="reward-lbl">MISSION CLEAR BONUS</span>
+                <span class="reward-val" id="reward-bonus">+150 🪙</span>
+              </div>
+              <div class="victory-reward-card">
+                <span class="reward-lbl">CRYSTALS HARVESTED</span>
+                <span class="reward-val" id="reward-crystals">+50 🪙</span>
+              </div>
+              <div class="victory-reward-card">
+                <span class="reward-lbl">HOSTILES VAPORIZED</span>
+                <span class="reward-val" id="reward-enemies">+75 🪙</span>
+              </div>
+            </div>
+
+            <div class="victory-wallet-strip">
+              <div class="wallet-earned">
+                <span>TOTAL REWARD EARNED:</span>
+                <strong id="reward-total">+275 COINS</strong>
+              </div>
+              <div class="wallet-balance">
+                <span>STARDUST VAULT BALANCE:</span>
+                <strong id="wallet-balance-text">🪙 375 COINS</strong>
+              </div>
+            </div>
+
+            <!-- Unlock Announcement Card -->
+            <div class="victory-unlock-card" id="victory-unlock-card">
+              <span class="unlock-icon">🔓</span>
+              <div class="unlock-info">
+                <strong id="victory-unlock-title">SECTOR 02 UNLOCKED: CRIMSON FRONTIER!</strong>
+                <p id="victory-unlock-desc">Explore low gravity volcanic ridges with floating basalt platforms and fiery pursuer squadrons.</p>
+              </div>
+            </div>
+
+            <div class="modal-btn-group victory-btn-group">
+              <button id="btn-victory-next" class="btn btn-primary btn-large">
+                <span id="btn-victory-next-text">🚀 PROCEED TO LEVEL 2</span>
+              </button>
+              <button id="btn-victory-replay" class="btn btn-secondary">
+                <span>🔄 REPLAY SECTOR</span>
+              </button>
+              <button id="btn-victory-menu" class="btn btn-secondary">
+                <span>🏠 RETURN TO DASHBOARD</span>
+              </button>
             </div>
           </div>
         </div>
