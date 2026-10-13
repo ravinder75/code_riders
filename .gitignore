@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak
+
+# IDE & Code Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs & debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build & Coverage
+dist/
+build/
+coverage/
+
+# Antigravity IDE & AI agent artifacts (if local)
+.gemini/
+.agents/
+scratch/

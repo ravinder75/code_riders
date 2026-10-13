@@ -1,0 +1,122 @@
+{
+  "idle": [
+    {
+      "file": "idle_0.png",
+      "w": 125,
+      "h": 263,
+      "pivotX": 62,
+      "pivotY": 263
+    },
+    {
+      "file": "idle_1.png",
+      "w": 121,
+      "h": 262,
+      "pivotX": 60,
+      "pivotY": 262
+    },
+    {
+      "file": "idle_2.png",
+      "w": 124,
+      "h": 256,
+      "pivotX": 62,
+      "pivotY": 256
+    },
+    {
+      "file": "idle_3.png",
+      "w": 132,
+      "h": 264,
+      "pivotX": 66,
+      "pivotY": 264
+    }
+  ],
+  "run": [
+    {
+      "file": "run_0.png",
+      "w": 196,
+      "h": 202,
+      "pivotX": 98,
+      "pivotY": 202
+    },
+    {
+      "file": "run_1.png",
+      "w": 183,
+      "h": 233,
+      "pivotX": 91,
+      "pivotY": 233
+    },
+    {
+      "file": "run_2.png",
+      "w": 216,
+      "h": 240,
+      "pivotX": 108,
+      "pivotY": 240
+    },
+    {
+      "file": "run_3.png",
+      "w": 221,
+      "h": 199,
+      "pivotX": 110,
+      "pivotY": 199
+    }
+  ],
+  "jump": [
+    {
+      "file": "jump_0.png",
+      "w": 180,
+      "h": 172,
+      "pivotX": 90,
+      "pivotY": 172
+    },
+    {
+      "file": "jump_1.png",
+      "w": 171,
+      "h": 214,
+      "pivotX": 85,
+      "pivotY": 214
+    },
+    {
+      "file": "jump_2.png",
+      "w": 159,
+      "h": 211,
+      "pivotX": 79,
+      "pivotY": 211
+    },
+    {
+      "file": "jump_3.png",
+      "w": 214,
+      "h": 191,
+      "pivotX": 107,
+      "pivotY": 191
+    }
+  ],
+  "attack": [
+    {
+      "file": "attack_0.png",
+      "w": 205,
+      "h": 227,
+      "pivotX": 102,
+      "pivotY": 227
+    },
+    {
+      "file": "attack_1.png",
+      "w": 220,
+      "h": 216,
+      "pivotX": 110,
+      "pivotY": 216
+    },
+    {
+      "file": "attack_2.png",
+      "w": 380,
+      "h": 229,
+      "pivotX": 95,
+      "pivotY": 229
+    },
+    {
+      "file": "attack_3.png",
+      "w": 168,
+      "h": 218,
+      "pivotX": 84,
+      "pivotY": 218
+    }
+  ]
+}

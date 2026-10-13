@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VECTOR ODYSSEY: Worlds of Gravity | Code Riders Team 6</title>
+  <meta name="description" content="2D Sci-Fi Planetary Exploration Game. Pilot your spaceship through deep space, use the sector radar, and explore Cygnus Prime with animated character. Team 6 Code Riders for RESPAWN - Pravrutti 2.0.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="game-container">
+    <!-- Main Render Canvas (1600x900 native resolution, CSS responsive scaling) -->
+    <canvas id="gameCanvas" width="1600" height="900"></canvas>
+
+    <!-- UI Overlay Layer for HUD and Modals -->
+    <div id="ui-overlay">
+
+      <!-- 1. SPACE FLIGHT HUD (ACTIVE IMMEDIATELY ON STARTUP) -->
+      <div id="space-hud" class="screen-view active">
+        <!-- Top Flight Telemetry Bar -->
+        <div class="hud-flight-top">
+          <!-- Ship Status -->
+          <div class="hud-box hud-ship-status">
+            <div class="status-row">
+              <span class="hud-label">SHIELD INTEGRITY:</span>
+              <span class="hud-value" id="hud-shield-text">100%</span>
+            </div>
+            <div class="shield-bar-outer">
+              <div class="shield-bar-inner" id="hud-shield-bar"></div>
+            </div>
+          </div>
+
+          <!-- Target & Navigation Vector Compass -->
+          <div class="hud-box hud-nav-target">
+            <div class="target-title">
+              <span class="pulse-dot"></span>
+              <span class="hud-label">TARGET DESTINATION:</span>
+              <span class="hud-value-highlight">CYGNUS PRIME</span>
+            </div>
+            <div class="nav-compass-row">
+              <div class="nav-arrow-wrapper">
+                <div class="nav-compass-arrow" id="hud-nav-arrow">▲</div>
+              </div>
+              <div class="nav-distance-box">
+                <span class="hud-label">DISTANCE:</span>
+                <span class="hud-value" id="hud-distance-readout">3,820 m</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Speed & Velocity Vector Telemetry -->
+          <div class="hud-box hud-speed-box">
+            <div class="status-row">
+              <span class="hud-label">VELOCITY:</span>
+              <span class="hud-value" id="hud-speed-text">0 km/s</span>
+            </div>
+            <div class="speed-bar-outer">
+              <div class="speed-bar-inner" id="hud-speed-bar"></div>
+            </div>
+            <div class="vector-coords" id="hud-flight-vector">
+              V-VEC: (0.0, 0.0)
+            </div>
+          </div>
+
+          <!-- Quick Audio / Map / Pause Actions -->
+          <div class="hud-flight-actions">
+            <button id="btn-quick-land" class="btn btn-small btn-primary" title="Instant Touchdown on Cygnus Prime">
+              <span>🪐 LAND NOW</span>
+            </button>
+            <button id="btn-toggle-map" class="btn btn-small btn-secondary" title="Toggle Sector Tactical Map">
+              <span>🗺️ MAP [M]</span>
+            </button>
+            <button id="btn-audio-toggle" class="btn btn-small btn-secondary" aria-label="Toggle Sound">
+              <span id="audio-icon">🔊 SOUND</span>
+            </button>
+            <button id="btn-flight-pause" class="btn btn-small btn-secondary">PAUSE [ESC]</button>
+          </div>
+        </div>
+
+        <!-- Real-Time Tactical Sector Radar (Requirement 1: See Area Around Us) -->
+        <div class="hud-minimap-container" id="hud-minimap-container">
+          <div class="minimap-header">
+            <span class="pulse-dot"></span>
+            <span class="minimap-title">SECTOR RADAR</span>
+            <span class="minimap-shortcut">[M: TOGGLE]</span>
+          </div>
+          <div class="minimap-canvas-wrapper">
+            <canvas id="minimapCanvas" width="220" height="160"></canvas>
+          </div>
+          <div class="minimap-legend">
+            <span class="legend-item"><span class="legend-dot dot-player"></span> SHIP</span>
+            <span class="legend-item"><span class="legend-dot dot-target"></span> CYGNUS</span>
+            <span class="legend-item"><span class="legend-dot dot-planets"></span> WORLDS</span>
+            <span class="legend-item"><span class="legend-dot dot-hazard"></span> HAZARDS</span>
+          </div>
+        </div>
+
+        <!-- Center Objective Banner (Fade out after few seconds) -->
+        <div class="flight-mission-banner" id="flight-banner">
+          <div class="banner-tag">SECTOR EXPEDITION // DIRECT FLIGHT PROTOCOL</div>
+          <h2 class="banner-heading">FLY TO CYGNUS PRIME</h2>
+          <p class="banner-sub">Use your sector radar [M] to navigate through space hazards toward Cygnus Prime.</p>
+        </div>
+
+        <!-- Warning HUD message for collisions / gravity well -->
+        <div class="hud-warning-alert" id="hud-warning-alert">
+          <span class="warning-icon">⚠</span> <span id="warning-text">GRAVITATIONAL ANOMALY DETECTED</span>
+        </div>
+
+        <!-- Bottom Flight Controls Hint -->
+        <div class="hud-flight-bottom">
+          <div class="flight-controls-guide">
+            <span class="key-pill">W / ↑</span> ACCELERATE &bull; 
+            <span class="key-pill">A / D / ← / →</span> STEER &bull; 
+            <span class="key-pill">S / ↓</span> BRAKE &bull; 
+            <span class="key-pill">SPACE</span> BOOST &bull; 
+            <span class="key-pill">M</span> SECTOR RADAR &bull; 
+            <span class="key-pill">ESC</span> PAUSE
+          </div>
+          <div class="flight-intel-badge">
+            RESPAWN 2.0 &bull; TEAM 6: CODE RIDERS
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. FULL EXPANDED SECTOR MAP MODAL -->
+      <div id="full-map-modal" class="game-modal">
+        <div class="modal-box full-map-box">
+          <div class="map-modal-header">
+            <div>
+              <h2 class="modal-title">GALAXY SECTOR TACTICAL MAP</h2>
+              <div class="map-modal-sub">REAL-TIME TELEMETRY &bull; 5 CELESTIAL WORLDS</div>
+            </div>
+            <button id="btn-close-full-map" class="terminal-close">&times;</button>
+          </div>
+          <div class="full-map-canvas-wrapper">
+            <canvas id="fullMapCanvas" width="760" height="420"></canvas>
+          </div>
+          <div class="full-map-info-bar">
+            <div class="map-stat-col"><strong>CURRENT TARGET:</strong> <span style="color:#00f3ff">CYGNUS PRIME (UNLOCKED)</span></div>
+            <div class="map-stat-col"><strong>SYSTEM HAZARDS:</strong> ASTEROID BELT &bull; GRAVITY ANOMALY &bull; PATROL PROBE</div>
+            <div class="map-stat-col"><strong>LOCKED WORLDS:</strong> CRIMSON FRONTIER &bull; NEBULA-9 &bull; FROST TITAN &bull; ECLIPSE CORE</div>
+          </div>
+          <div class="modal-btn-group" style="margin-top:14px; align-items:flex-end;">
+            <button id="btn-resume-from-map" class="btn btn-primary">RESUME FLIGHT [M / ESC]</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. PLANET LANDING TRANSITION -->
+      <div id="landing-screen" class="screen-view">
+        <div class="landing-content">
+          <div class="landing-telemetry">
+            <div class="telemetry-tag">ORBITAL INSERTION CONFIRMED</div>
+            <h2 id="landing-planet-title">TOUCHDOWN ON CYGNUS PRIME</h2>
+            <div class="telemetry-gauge">
+              <div class="gauge-bar" id="landing-gauge-bar"></div>
+            </div>
+            <div class="telemetry-readout" id="landing-readout">ATMOSPHERIC ENTRY: ALTITUDE 4,200m &bull; LANDING GEAR DEPLOYED</div>
+          </div>
+          <button id="btn-skip-landing" class="btn btn-small btn-secondary">SKIP ENTRY [SPACE]</button>
+        </div>
+      </div>
+
+      <!-- 4. PLANET SURFACE ON-FOOT HUD (ANIMATED CHARACTER INTEGRATION) -->
+      <div id="game-hud" class="screen-view">
+        <div class="hud-top">
+          <div class="hud-box hud-planet">
+            <span class="hud-label">PLANET:</span>
+            <span class="hud-value" id="hud-planet-name">CYGNUS PRIME</span>
+            <span class="hud-sector">SECTOR 01</span>
+          </div>
+
+          <div class="hud-box hud-objective">
+            <span class="hud-label">OBJECTIVE:</span>
+            <span class="hud-value" id="hud-objective-text">Reach the Ancient Energy Gate</span>
+          </div>
+
+          <div class="hud-box hud-crystals">
+            <span class="hud-label">ENERGY CRYSTALS:</span>
+            <span class="hud-value" id="hud-crystal-count">0 / 5</span>
+            <span class="hud-crystal-icons" id="hud-crystal-icons">◇◇◇◇◇</span>
+          </div>
+
+          <div class="hud-actions">
+            <button id="btn-jump-action" class="btn btn-small btn-primary" title="Jump Across Platforms [W / SPACE / ↑]">
+              ⬆️ JUMP [SPACE]
+            </button>
+            <button id="btn-attack-action" class="btn btn-small btn-primary" title="Attack / Kamehameha Blast [J]">
+              💥 ATTACK [J]
+            </button>
+            <button id="btn-surface-orbit" class="btn btn-small btn-secondary" title="Return to Spaceship Orbit">
+              🚀 ORBIT
+            </button>
+            <button id="btn-pause" class="btn btn-small btn-secondary">PAUSE [ESC]</button>
+          </div>
+        </div>
+
+        <div class="hud-bottom">
+          <div class="hud-controls-hint">
+            <span>[A] [D] / [←] [→] RUN</span> &bull; 
+            <span>[W] / [SPACE] / [↑] JUMP</span> &bull; 
+            <span style="color:#facc15">[J] / [Z] / [CLICK] ATTACK (KAMEHAMEHA)</span> &bull; 
+            <span>[E] INTERACT</span> &bull; 
+            <span>[ESC] PAUSE</span>
+          </div>
+          <div class="hud-vector-readout" id="hud-vector-readout">
+            POS: X:0 Y:0 &bull; VEL: (0.0, 0.0) &bull; ANIM: IDLE
+          </div>
+        </div>
+
+        <!-- Checkpoint Notification Banner -->
+        <div id="checkpoint-banner" class="checkpoint-banner">
+          <div class="banner-inner">
+            <div class="banner-badge">GATEWAY SYNCHRONIZATION COMPLETE</div>
+            <h2 class="banner-title">CHECKPOINT REACHED</h2>
+            <p class="banner-subtitle">
+              Sector 1 Introductory Route Cleared! Ancient vector conduits resonate with your telemetry.<br>
+              <strong>The Gravity Temple lies ahead. Phase 2 departure protocols unlock here.</strong>
+            </p>
+            <div class="banner-buttons">
+              <button id="btn-checkpoint-fly" class="btn btn-primary">LAUNCH SPACESHIP AGAIN</button>
+              <button id="btn-checkpoint-replay" class="btn btn-secondary">REPLAY SURFACE SECTOR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal / Telemetry Math Modal -->
+        <div id="math-terminal" class="terminal-overlay">
+          <div class="terminal-box">
+            <div class="terminal-header">
+              <span class="pulse-dot"></span> GEOMETRIC TELEMETRY TERMINAL // VECTOR PROTOCOL 01
+              <button id="btn-close-terminal" class="terminal-close">&times;</button>
+            </div>
+            <div class="terminal-body">
+              <div class="terminal-figure">
+                <canvas id="mathCanvas" width="400" height="240"></canvas>
+              </div>
+              <div class="terminal-text">
+                <h4>SLOPED VECTOR INCLINATION (&theta; = 30&deg;)</h4>
+                <p>
+                  On inclined planetary vector surfaces, gravitational acceleration decomposes into perpendicular normal force and tangential momentum:
+                </p>
+                <div class="formula">
+                  F<sub>&perp;</sub> = m &bull; g &bull; cos(&theta;) &nbsp;&nbsp;|&nbsp;&nbsp; a<sub>&parallel;</sub> = g &bull; sin(&theta;)
+                </div>
+                <p class="terminal-note">
+                  <strong>SYSTEM NOTICE:</strong> In future planetary sectors (Crimson Frontier &amp; Eclipse Core), directional gravity vector fields and orbital flight mechanics will be manipulated dynamically.
+                </p>
+              </div>
+            </div>
+            <div class="terminal-footer">
+              <button id="btn-terminal-dismiss" class="btn btn-small btn-primary">ACKNOWLEDGE TELEMETRY</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. PAUSE MENU -->
+      <div id="pause-modal" class="game-modal">
+        <div class="modal-box">
+          <h2 class="modal-title">EXPEDITION PAUSED</h2>
+          <p class="modal-desc">Telemetry and spacecraft systems suspended.</p>
+          <div class="modal-btn-group">
+            <button id="btn-pause-resume" class="btn btn-primary">RESUME EXPEDITION</button>
+            <button id="btn-pause-restart" class="btn btn-secondary">RESTART MISSION</button>
+            <button id="btn-pause-controls" class="btn btn-secondary">VIEW CONTROLS GUIDE</button>
+          </div>
+          <div class="modal-hint">Press <strong>ESC</strong> or <strong>P</strong> to Resume</div>
+        </div>
+      </div>
+
+      <!-- 6. CONTROLS GUIDE MODAL -->
+      <div id="controls-modal" class="game-modal">
+        <div class="modal-box intel-box">
+          <h2 class="modal-title">PILOT MANUAL &amp; DIRECTIVES</h2>
+          <div class="intel-content">
+            <div class="intel-col">
+              <h3>SPACESHIP FLIGHT CONTROLS</h3>
+              <table class="controls-table">
+                <tr><td><strong>W / Up Arrow</strong></td><td>Accelerate Forward Thrusters</td></tr>
+                <tr><td><strong>A / D or Left / Right</strong></td><td>Steer / Rotate Spacecraft</td></tr>
+                <tr><td><strong>S / Down Arrow</strong></td><td>Brake / Reverse Thrusters</td></tr>
+                <tr><td><strong>Space</strong></td><td>Thruster Afterburner Boost</td></tr>
+                <tr><td><strong>M</strong></td><td>Toggle Sector Radar &amp; Galaxy Map</td></tr>
+                <tr><td><strong>ESC / P</strong></td><td>Pause Flight</td></tr>
+              </table>
+            </div>
+            <div class="intel-col">
+              <h3>ON-FOOT ANIMATED EXPLORER</h3>
+              <table class="controls-table">
+                <tr><td><strong>A / D or Left / Right</strong></td><td>Walk / Run (Animated Sprites)</td></tr>
+                <tr><td><strong>W / Space / Up</strong></td><td>Jump Across Platforms (Air Poses)</td></tr>
+                <tr><td><strong>J / Z / Left Click</strong></td><td>Attack (Kamehameha Blast Wave)</td></tr>
+                <tr><td><strong>E</strong></td><td>Inspect Mathematical Terminals</td></tr>
+              </table>
+              <h3 style="margin-top: 14px;">MISSION GOAL</h3>
+              <p style="font-size: 0.85rem; color: #94a3b8; line-height: 1.4;">
+                Pilot your ship through deep space using the sector radar, reach Cygnus Prime, and explore on foot using animated combat &amp; platforming skills.
+              </p>
+            </div>
+          </div>
+          <div class="modal-btn-group">
+            <button id="btn-controls-close" class="btn btn-primary">CONFIRM &amp; RETURN</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

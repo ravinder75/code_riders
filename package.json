@@ -1,0 +1,20 @@
+{
+  "name": "vector-odyssey",
+  "version": "1.0.0",
+  "description": "2D Sci-Fi Planetary Exploration Game - Team 6 CODE RIDERS (RESPAWN Pravrutti 2.0)",
+  "type": "module",
+  "scripts": {
+    "start": "python -m http.server 8085",
+    "test": "node test/game_engine.test.js"
+  },
+  "keywords": [
+    "canvas",
+    "vector",
+    "gravity",
+    "sci-fi",
+    "2d-platformer",
+    "game"
+  ],
+  "author": "CODE RIDERS - Team 6",
+  "license": "MIT"
+}
