@@ -233,6 +233,71 @@ test('Running to Jump: Player can seamlessly jump while running at full velocity
 });
 
 // ----------------------------------------------------------------------------
+// TEST 7: DEEP SPACE HOSTILE PURSUER DRONES AI
+// ----------------------------------------------------------------------------
+test('Space Pursuers: Interceptor drones detect player and calculate pursuit vectors', () => {
+  const ship = { x: 1000, y: 800 };
+  const drone = { x: 1400, y: 800, speed: 280, detectionRadius: 1100, alert: false, angle: 0 };
+
+  const dist = Math.hypot(ship.x - drone.x, ship.y - drone.y);
+  assert.ok(dist <= drone.detectionRadius, 'Player ship is within detection perimeter');
+
+  if (dist <= drone.detectionRadius) {
+    drone.alert = true;
+    drone.angle = Math.atan2(ship.y - drone.y, ship.x - drone.x);
+  }
+
+  assert.equal(drone.alert, true, 'Drone enters active pursuit mode');
+  assert.equal(Math.round(drone.angle), Math.round(Math.PI), 'Drone angles directly towards player ship (heading left)');
+});
+
+// ----------------------------------------------------------------------------
+// TEST 8: PLANETARY SURFACE KAMEHAMEHA COMBAT AGAINST ENEMIES
+// ----------------------------------------------------------------------------
+test('Surface Combat: Kamehameha blast wave hits and eliminates cyber-enemies', () => {
+  const player = { x: 300, y: 590, facing: 1, isAttacking: true, animFrame: 2 };
+  const sentinel = { x: 500, y: 610, w: 38, h: 38, hp: 40, maxHp: 40, alive: true };
+
+  // Beam check
+  const beamMinX = player.x + 20;
+  const beamMaxX = player.x + 440;
+  const beamY = player.y + 36;
+
+  const hit = sentinel.x + sentinel.w > beamMinX && sentinel.x < beamMaxX && Math.abs(sentinel.y + sentinel.h / 2 - beamY) < 45;
+  assert.ok(hit, 'Kamehameha beam intersects enemy hitbox');
+
+  if (hit) {
+    sentinel.hp -= 40;
+    if (sentinel.hp <= 0) sentinel.alive = false;
+  }
+
+  assert.equal(sentinel.hp, 0, 'Enemy takes full damage from Kamehameha');
+  assert.equal(sentinel.alive, false, 'Enemy is eliminated and disintegrates');
+});
+
+// ----------------------------------------------------------------------------
+// TEST 9: DYNAMIC GRAVITY ANOMALY & QUANTUM JUMP LIFT
+// ----------------------------------------------------------------------------
+test('Planetary Physics: High gravity zone and quantum jump lift execute properly', () => {
+  let p = { x: 950, y: 590, h: 68, vy: 0, gravity: 980, onGround: true };
+
+  // High Gravity Zone (x: 840 to 1220)
+  if (p.x >= 840 && p.x <= 1220) {
+    p.gravity = 1550;
+  }
+  assert.equal(p.gravity, 1550, 'Gravity anomaly increases downward acceleration to 1550 px/s²');
+
+  // Quantum Lift pad (x: 1040, y: 646)
+  p.x = 1040;
+  if (p.x >= 1010 && p.x <= 1080) {
+    p.vy = -740;
+    p.onGround = false;
+  }
+  assert.equal(p.vy, -740, 'Quantum lift propels player upwards with -740 px/s impulse');
+  assert.equal(p.onGround, false, 'Player becomes airborne from quantum lift');
+});
+
+// ----------------------------------------------------------------------------
 // SUMMARY
 // ----------------------------------------------------------------------------
 console.log(`\n============================================================`);

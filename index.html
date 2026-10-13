@@ -18,8 +18,59 @@
     <!-- UI Overlay Layer for HUD and Modals -->
     <div id="ui-overlay">
 
-      <!-- 1. SPACE FLIGHT HUD (ACTIVE IMMEDIATELY ON STARTUP) -->
-      <div id="space-hud" class="screen-view active">
+      <!-- 0. MAIN TITLE / START INTERFACE MENU -->
+      <div id="main-menu" class="screen-view active">
+        <div class="menu-container">
+          <div class="menu-badge">RESPAWN 2.0 // TEAM 6: CODE RIDERS</div>
+          <h1 class="menu-title">VECTOR ODYSSEY</h1>
+          <div class="menu-subtitle">WORLDS OF GRAVITY &bull; SECTOR EXPEDITION</div>
+          
+          <div class="menu-threat-alert">
+            <span class="pulse-dot red-dot"></span>
+            <span>TACTICAL WARNING: HOSTILE PURSUER DRONES DETECTED IN DEEP SPACE</span>
+          </div>
+
+          <div class="menu-card-grid">
+            <div class="menu-card">
+              <div class="card-icon">🚀</div>
+              <h3>SPACE FLIGHT</h3>
+              <p>Evade chasing hunter interceptors, dodge dense asteroid fields, and sling around gravity wells to reach Cygnus Prime.</p>
+            </div>
+            <div class="menu-card">
+              <div class="card-icon">🪐</div>
+              <h3>CYGNUS EXPEDITION</h3>
+              <p>Conquer 30° sloped geometry, quantum jump pads, and defeat cyber-sentinels using your Kamehameha blast wave.</p>
+            </div>
+          </div>
+
+          <div class="menu-actions">
+            <button id="btn-start-space" class="btn btn-primary btn-large">
+              <span>🚀 LAUNCH EXPEDITION (OUTER SPACE)</span>
+            </button>
+            <button id="btn-start-surface" class="btn btn-secondary btn-large">
+              <span>🪐 DIRECT PLANET EXPLORATION</span>
+            </button>
+            <div class="menu-sub-actions">
+              <button id="btn-menu-controls" class="btn btn-small btn-secondary">
+                <span>🎮 PILOT MANUAL & CONTROLS</span>
+              </button>
+              <button id="btn-menu-audio" class="btn btn-small btn-secondary">
+                <span id="menu-audio-icon">🔊 SOUND: ON</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="menu-telemetry-strip">
+            <span>VESSEL: ODYSSEY-01</span> &bull; 
+            <span>TARGET: CYGNUS PRIME</span> &bull; 
+            <span>GRAVITY: 9.8 m/s² (VARIABLE)</span> &bull; 
+            <span>COMBAT: KAMEHAMEHA READY</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1. SPACE FLIGHT HUD -->
+      <div id="space-hud" class="screen-view">
         <!-- Top Flight Telemetry Bar -->
         <div class="hud-flight-top">
           <!-- Ship Status -->
@@ -179,6 +230,16 @@
             <span class="hud-value" id="hud-objective-text">Reach the Ancient Energy Gate</span>
           </div>
 
+          <div class="hud-box hud-health">
+            <div class="status-row">
+              <span class="hud-label">EXPLORER HP:</span>
+              <span class="hud-value" id="hud-player-hp">100 / 100</span>
+            </div>
+            <div class="shield-bar-outer">
+              <div class="shield-bar-inner" id="hud-player-hp-bar" style="background: linear-gradient(90deg, #10b981, #00f3ff);"></div>
+            </div>
+          </div>
+
           <div class="hud-box hud-crystals">
             <span class="hud-label">ENERGY CRYSTALS:</span>
             <span class="hud-value" id="hud-crystal-count">0 / 5</span>
@@ -209,6 +270,18 @@
           </div>
           <div class="hud-vector-readout" id="hud-vector-readout">
             POS: X:0 Y:0 &bull; VEL: (0.0, 0.0) &bull; ANIM: IDLE
+          </div>
+        </div>
+
+        <!-- On-Screen Direct Touch / Click Control Pad -->
+        <div class="hud-onscreen-gamepad" id="onscreen-gamepad">
+          <div class="gamepad-dpad">
+            <button id="touch-left" class="btn-touch" aria-label="Run Left">◀ RUN</button>
+            <button id="touch-right" class="btn-touch" aria-label="Run Right">RUN ▶</button>
+          </div>
+          <div class="gamepad-actions">
+            <button id="touch-jump" class="btn-touch btn-touch-jump" aria-label="Jump Across Platforms">⬆️ JUMP [SPACE]</button>
+            <button id="touch-attack" class="btn-touch btn-touch-attack" aria-label="Kamehameha Attack">💥 KAMEHAMEHA [J]</button>
           </div>
         </div>
 
@@ -312,6 +385,6 @@
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <script src="game.js?v=2.5"></script>
 </body>
 </html>

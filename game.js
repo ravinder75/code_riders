@@ -287,9 +287,9 @@ class VectorOdysseyGame {
     this.V_WIDTH = 1600;
     this.V_HEIGHT = 900;
 
-    // States: 'SPACE_FLIGHT', 'LANDING', 'PLAYING', 'PAUSED'
-    this.state = 'SPACE_FLIGHT';
-    this.previousState = 'SPACE_FLIGHT';
+    // States: 'MAIN_MENU', 'SPACE_FLIGHT', 'LANDING', 'PLAYING', 'PAUSED'
+    this.state = 'MAIN_MENU';
+    this.previousState = 'MAIN_MENU';
 
     // Camera in 2D World
     this.cameraX = 0;
@@ -377,6 +377,8 @@ class VectorOdysseyGame {
       respawnX: 120,
       respawnY: 590,
       isInvulnerable: 0,
+      hp: 100,
+      maxHp: 100,
 
       // Animation State Machine
       animState: 'idle', // 'idle', 'run', 'jump', 'attack'
@@ -386,6 +388,14 @@ class VectorOdysseyGame {
       attackCooldown: 0,
       justLandedTimer: 0
     };
+
+    // Space Hostile Pursuer Drones & Lasers
+    this.hunterDrones = [];
+    this.spaceLasers = [];
+
+    // Surface Combat Entities & Zones
+    this.surfaceEnemies = [];
+    this.surfaceProjectiles = [];
 
     // Surface Entities
     this.platforms = [];
@@ -568,6 +578,15 @@ class VectorOdysseyGame {
       { x: 2350, y: 1150, radius: 14, collected: false },
       { x: 3300, y: 980, radius: 14, collected: false }
     ];
+
+    // Hostile Outer Space Hunter Interceptors (Chase & Attack the ship)
+    this.hunterDrones = [
+      { id: 1, x: 1250, y: 840, vx: 0, vy: 0, speed: 280, radius: 24, detectionRadius: 1100, shootTimer: 2.0, hp: 3, alert: false, angle: 0 },
+      { id: 2, x: 2150, y: 1350, vx: 0, vy: 0, speed: 290, radius: 24, detectionRadius: 1150, shootTimer: 1.8, hp: 3, alert: false, angle: 0 },
+      { id: 3, x: 2750, y: 760, vx: 0, vy: 0, speed: 310, radius: 24, detectionRadius: 1200, shootTimer: 1.6, hp: 3, alert: false, angle: 0 },
+      { id: 4, x: 3450, y: 1180, vx: 0, vy: 0, speed: 330, radius: 24, detectionRadius: 1250, shootTimer: 1.4, hp: 3, alert: false, angle: 0 }
+    ];
+    this.spaceLasers = [];
   }
 
   initSurfaceLevel() {
@@ -591,6 +610,19 @@ class VectorOdysseyGame {
     this.player.jumpBufferTimer = 0;
     this.player.justLandedTimer = 0;
     this.player.onGround = false;
+    this.player.hp = 100;
+    this.player.maxHp = 100;
+
+    // Surface Combat Enemies (Shootable with Kamehameha)
+    this.surfaceEnemies = [
+      { id: 1, type: 'crawler', name: 'PLASMA CRAWLER', x: 420, y: 636, minX: 340, maxX: 540, vx: 80, vy: 0, w: 36, h: 26, hp: 30, maxHp: 30, facing: 1, alive: true },
+      { id: 2, type: 'sentinel', name: 'CYBER-SENTINEL', x: 650, y: 460, minX: 580, maxX: 720, vx: 60, vy: 0, w: 38, h: 38, hp: 40, maxHp: 40, shootTimer: 2.2, facing: -1, alive: true },
+      { id: 3, type: 'sentinel', name: 'HEAVY SENTINEL', x: 1040, y: 350, minX: 950, maxX: 1140, vx: 70, vy: 0, w: 38, h: 38, hp: 40, maxHp: 40, shootTimer: 2.0, facing: -1, alive: true },
+      { id: 4, type: 'crawler', name: 'PLASMA CRAWLER', x: 1320, y: 636, minX: 1220, maxX: 1440, vx: 95, vy: 0, w: 36, h: 26, hp: 30, maxHp: 30, facing: 1, alive: true },
+      { id: 5, type: 'sentinel', name: 'ELITE SENTINEL', x: 1940, y: 460, minX: 1820, maxX: 2040, vx: 80, vy: 0, w: 38, h: 38, hp: 50, maxHp: 50, shootTimer: 1.8, facing: -1, alive: true },
+      { id: 6, type: 'sentinel', name: 'GATE GUARDIAN', x: 2320, y: 410, minX: 2240, maxX: 2420, vx: 65, vy: 0, w: 42, h: 42, hp: 60, maxHp: 60, shootTimer: 1.5, facing: -1, alive: true }
+    ];
+    this.surfaceProjectiles = [];
 
     this.platforms = [
       { x: 0, y: 660, w: 560, h: 240, type: 'ground' },
@@ -655,6 +687,7 @@ class VectorOdysseyGame {
 
   initUI() {
     this.screens = {
+      mainMenu: document.getElementById('main-menu'),
       spaceHud: document.getElementById('space-hud'),
       landing: document.getElementById('landing-screen'),
       surfaceHud: document.getElementById('game-hud'),
@@ -665,15 +698,33 @@ class VectorOdysseyGame {
       mathTerminal: document.getElementById('math-terminal')
     };
 
-    this.transitionToState('SPACE_FLIGHT');
-
-    setTimeout(() => {
-      const banner = document.getElementById('flight-banner');
-      if (banner) banner.style.opacity = '0';
-    }, 4500);
+    this.transitionToState('MAIN_MENU');
   }
 
   bindEvents() {
+    // Main Menu Buttons
+    document.getElementById('btn-start-space')?.addEventListener('click', () => {
+      this.audio.init();
+      this.transitionToState('SPACE_FLIGHT');
+    });
+
+    document.getElementById('btn-start-surface')?.addEventListener('click', () => {
+      this.audio.init();
+      this.initSurfaceLevel();
+      this.transitionToState('PLAYING');
+    });
+
+    document.getElementById('btn-menu-controls')?.addEventListener('click', () => {
+      this.screens.controlsModal?.classList.add('active');
+    });
+
+    document.getElementById('btn-menu-audio')?.addEventListener('click', () => {
+      this.audio.init();
+      const enabled = this.audio.toggle();
+      const icon = document.getElementById('menu-audio-icon');
+      if (icon) icon.textContent = enabled ? '🔊 SOUND: ON' : '🔇 SOUND: OFF';
+    });
+
     // Quick Actions
     document.getElementById('btn-audio-toggle')?.addEventListener('click', () => {
       this.audio.init();
@@ -744,17 +795,65 @@ class VectorOdysseyGame {
       this.closeTerminal();
     });
 
-    // Attack Action Button (On-Foot)
-    document.getElementById('btn-attack-action')?.addEventListener('click', () => {
-      this.triggerAttack();
-    });
-
-    // Jump Action Button (On-Foot)
-    document.getElementById('btn-jump-action')?.addEventListener('click', () => {
+    // Universal Jump Action Function (Cancels attack lock & triggers immediate jump!)
+    const handleJumpAction = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget?.blur();
+      }
       if (this.state === 'PLAYING') {
+        this.player.isAttacking = false;
+        this.player.animTimer = 0;
+        this.player.jumpBufferTimer = 0.2;
         this.triggerJump();
       }
-    });
+    };
+
+    // Universal Attack Action Function
+    const handleAttackAction = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget?.blur();
+      }
+      if (this.state === 'PLAYING') {
+        this.triggerAttack();
+      }
+    };
+
+    // Bind Jump Buttons (HUD & On-Screen Touch Gamepad)
+    const btnJump = document.getElementById('btn-jump-action');
+    btnJump?.addEventListener('click', handleJumpAction);
+    btnJump?.addEventListener('touchstart', handleJumpAction, { passive: false });
+
+    const touchJump = document.getElementById('touch-jump');
+    touchJump?.addEventListener('click', handleJumpAction);
+    touchJump?.addEventListener('touchstart', handleJumpAction, { passive: false });
+
+    // Bind Attack Buttons (HUD & On-Screen Touch Gamepad)
+    const btnAttack = document.getElementById('btn-attack-action');
+    btnAttack?.addEventListener('click', handleAttackAction);
+
+    const touchAttack = document.getElementById('touch-attack');
+    touchAttack?.addEventListener('click', handleAttackAction);
+    touchAttack?.addEventListener('touchstart', handleAttackAction, { passive: false });
+
+    // Bind Touch D-Pad (Run Left & Right)
+    const bindTouchMovement = (elemId, keyName) => {
+      const btn = document.getElementById(elemId);
+      if (!btn) return;
+      const start = (e) => { e.preventDefault(); e.stopPropagation(); this.keys[keyName] = true; };
+      const stop = (e) => { e.preventDefault(); e.stopPropagation(); this.keys[keyName] = false; btn.blur(); };
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('touchstart', start, { passive: false });
+      btn.addEventListener('mouseup', stop);
+      btn.addEventListener('mouseleave', stop);
+      btn.addEventListener('touchend', stop);
+      btn.addEventListener('touchcancel', stop);
+    };
+    bindTouchMovement('touch-left', 'left');
+    bindTouchMovement('touch-right', 'right');
 
     // Quick Land Button (From Space directly to Planet Surface)
     document.getElementById('btn-quick-land')?.addEventListener('click', () => {
@@ -768,7 +867,7 @@ class VectorOdysseyGame {
     });
 
     // Canvas click triggers attack on foot
-    this.canvas.addEventListener('mousedown', () => {
+    this.canvas.addEventListener('mousedown', (e) => {
       if (this.state === 'PLAYING') {
         this.triggerAttack();
       }
@@ -887,6 +986,10 @@ class VectorOdysseyGame {
     this.state = newState;
 
     switch (newState) {
+      case 'MAIN_MENU':
+        this.screens.mainMenu?.classList.add('active');
+        this.audio.stopThrusterHum();
+        break;
       case 'SPACE_FLIGHT':
         this.screens.spaceHud?.classList.add('active');
         break;
@@ -902,6 +1005,8 @@ class VectorOdysseyGame {
       case 'PAUSED':
         if (this.previousState === 'SPACE_FLIGHT') {
           this.screens.spaceHud?.classList.add('active');
+        } else if (this.previousState === 'MAIN_MENU') {
+          this.screens.mainMenu?.classList.add('active');
         } else {
           this.screens.surfaceHud?.classList.add('active');
         }
@@ -1112,6 +1217,100 @@ class VectorOdysseyGame {
       }
     });
 
+    // Hostile Hunter Drones (Chase player & fire plasma lasers!)
+    let alertCount = 0;
+    this.hunterDrones.forEach(drone => {
+      const dist = Math.hypot(this.ship.x - drone.x, this.ship.y - drone.y);
+      if (dist < drone.detectionRadius) {
+        alertCount++;
+        drone.alert = true;
+        drone.angle = Math.atan2(this.ship.y - drone.y, this.ship.x - drone.x);
+        drone.vx += Math.cos(drone.angle) * drone.speed * dt * 2.2;
+        drone.vy += Math.sin(drone.angle) * drone.speed * dt * 2.2;
+
+        const spd = Math.hypot(drone.vx, drone.vy);
+        if (spd > drone.speed) {
+          drone.vx = (drone.vx / spd) * drone.speed;
+          drone.vy = (drone.vy / spd) * drone.speed;
+        }
+
+        if (Math.random() < 0.35) {
+          this.particles.push({
+            x: drone.x - Math.cos(drone.angle) * 18,
+            y: drone.y - Math.sin(drone.angle) * 18,
+            vx: -Math.cos(drone.angle) * 90 + (Math.random() - 0.5) * 30,
+            vy: -Math.sin(drone.angle) * 90 + (Math.random() - 0.5) * 30,
+            life: 0.3,
+            maxLife: 0.3,
+            color: '#ef4444',
+            size: Math.random() * 3 + 1.5
+          });
+        }
+
+        if (drone.shootTimer > 0) drone.shootTimer -= dt;
+        if (dist < 650 && drone.shootTimer <= 0) {
+          this.spaceLasers.push({
+            x: drone.x + Math.cos(drone.angle) * 22,
+            y: drone.y + Math.sin(drone.angle) * 22,
+            vx: Math.cos(drone.angle) * 460,
+            vy: Math.sin(drone.angle) * 460,
+            life: 2.2
+          });
+          drone.shootTimer = 1.6;
+          this.audio.playImpact();
+        }
+      } else {
+        drone.alert = false;
+        drone.vx *= 0.95;
+        drone.vy *= 0.95;
+      }
+
+      drone.x += drone.vx * dt;
+      drone.y += drone.vy * dt;
+
+      // Hunter Drone Ramming Collision
+      if (dist < drone.radius + this.ship.radius) {
+        this.handleShipObstacleCollision(drone.x, drone.y, 25);
+      }
+    });
+
+    // Space Lasers Flight & Collisions
+    for (let i = this.spaceLasers.length - 1; i >= 0; i--) {
+      const l = this.spaceLasers[i];
+      l.life -= dt;
+      l.x += l.vx * dt;
+      l.y += l.vy * dt;
+
+      if (Math.hypot(this.ship.x - l.x, this.ship.y - l.y) < this.ship.radius + 6) {
+        this.handleShipObstacleCollision(l.x, l.y, 16);
+        this.spaceLasers.splice(i, 1);
+        continue;
+      }
+
+      let blocked = false;
+      for (const ast of this.asteroids) {
+        if (Math.hypot(ast.x - l.x, ast.y - l.y) < ast.radius) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked || l.life <= 0) {
+        this.spaceLasers.splice(i, 1);
+      }
+    }
+
+    // Threat HUD banner
+    const warningAlert = document.getElementById('hud-warning-alert');
+    const warningText = document.getElementById('warning-text');
+    if (warningAlert && warningText) {
+      if (alertCount > 0) {
+        warningAlert.classList.add('visible');
+        warningText.textContent = `⚠ ENEMY PURSUER INTERCEPTOR DETECTED! (${alertCount} LOCKING ON)`;
+      } else {
+        warningAlert.classList.remove('visible');
+      }
+    }
+
     // Particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -1288,6 +1487,22 @@ class VectorOdysseyGame {
     mctx.lineTo(this.cygnusPrime.x * sx, this.cygnusPrime.y * sy);
     mctx.stroke();
     mctx.setLineDash([]);
+
+    // Hostile Hunter Drones on Radar
+    this.hunterDrones.forEach(d => {
+      mctx.save();
+      mctx.translate(d.x * sx, d.y * sy);
+      mctx.rotate(d.angle);
+      mctx.fillStyle = d.alert ? '#ef4444' : '#f97316';
+      mctx.beginPath();
+      mctx.moveTo(5, 0);
+      mctx.lineTo(-4, 3);
+      mctx.lineTo(-2, 0);
+      mctx.lineTo(-4, -3);
+      mctx.closePath();
+      mctx.fill();
+      mctx.restore();
+    });
 
     // Player Ship Chevron on Radar
     mctx.save();
@@ -1614,9 +1829,49 @@ class VectorOdysseyGame {
       p.vx = Math.sign(p.vx) * p.speed;
     }
 
+    // Gravity Zones (High Gravity Zone: x 840 to 1220)
+    let gravityReadout = 'g = 9.8 m/s²';
+    if (p.x >= 840 && p.x <= 1220) {
+      p.gravity = 1550;
+      gravityReadout = 'g = 15.8 m/s² [ANOMALOUS HIGH GRAVITY]';
+      if (Math.random() < 0.25) {
+        this.particles.push({
+          x: p.x + (Math.random() - 0.5) * 50,
+          y: p.y - 30,
+          vx: 0,
+          vy: Math.random() * 60 + 90,
+          life: 0.35,
+          maxLife: 0.35,
+          color: 'rgba(168, 85, 247, 0.5)',
+          size: Math.random() * 2.5 + 1
+        });
+      }
+    } else {
+      p.gravity = 980;
+    }
+
+    // Quantum Anti-Gravity Jump Lift Pad (x: 1040, y: 646)
+    if (p.x >= 1010 && p.x <= 1080 && p.y + p.h >= 640 && p.y + p.h <= 670) {
+      p.vy = -740;
+      p.onGround = false;
+      this.audio.playJump();
+      for (let i = 0; i < 14; i++) {
+        this.particles.push({
+          x: 1045 + (Math.random() - 0.5) * 35,
+          y: 648,
+          vx: (Math.random() - 0.5) * 50,
+          vy: -Math.random() * 160 - 120,
+          life: 0.4,
+          maxLife: 0.4,
+          color: '#00f3ff',
+          size: Math.random() * 3 + 1.5
+        });
+      }
+    }
+
     // Gravity
     p.vy += p.gravity * dt;
-    if (p.vy > 900) p.vy = 900;
+    if (p.vy > 950) p.vy = 950;
 
     // Movement & Collisions
     p.x += p.vx * dt;
@@ -1629,7 +1884,7 @@ class VectorOdysseyGame {
 
     // Coyote time when running off an edge without jumping
     if (wasOnGround && !p.onGround && p.vy >= 0 && p.jumpCooldown <= 0) {
-      p.coyoteTimer = 0.12;
+      p.coyoteTimer = 0.14;
     }
 
     if (!wasOnGround && p.onGround && p.vy >= 0) {
@@ -1662,7 +1917,7 @@ class VectorOdysseyGame {
       const py = Math.floor(p.y);
       const vx = p.vx.toFixed(1);
       const vy = p.vy.toFixed(1);
-      readout.textContent = `POS: (${px}, ${py}) • VEL: (${vx}, ${vy}) • ANIM: ${p.animState.toUpperCase()}`;
+      readout.textContent = `POS: (${px}, ${py}) • VEL: (${vx}, ${vy}) • ${gravityReadout} • ANIM: ${p.animState.toUpperCase()}`;
     }
   }
 
@@ -1877,6 +2132,133 @@ class VectorOdysseyGame {
       }
     }
 
+    // Surface Enemies Combat Update & Kamehameha Destruction
+    for (const e of this.surfaceEnemies) {
+      if (!e.alive) continue;
+
+      if (e.type === 'crawler') {
+        e.x += e.vx * dt;
+        if (e.x > e.maxX) { e.x = e.maxX; e.vx = -Math.abs(e.vx); e.facing = -1; }
+        if (e.x < e.minX) { e.x = e.minX; e.vx = Math.abs(e.vx); e.facing = 1; }
+
+        const distToPlayer = Math.hypot(this.player.x - e.x, this.player.y - e.y);
+        if (distToPlayer < 240 && Math.abs(this.player.y - e.y) < 50) {
+          e.vx = (this.player.x > e.x ? 1 : -1) * 140;
+          e.facing = Math.sign(e.vx);
+        }
+      } else if (e.type === 'sentinel') {
+        e.x += e.vx * dt;
+        if (e.x > e.maxX) { e.x = e.maxX; e.vx = -Math.abs(e.vx); e.facing = -1; }
+        if (e.x < e.minX) { e.x = e.minX; e.vx = Math.abs(e.vx); e.facing = 1; }
+
+        if (e.shootTimer > 0) e.shootTimer -= dt;
+        const distToPlayer = Math.hypot(this.player.x - e.x, this.player.y - e.y);
+        if (distToPlayer < 500 && e.shootTimer <= 0) {
+          const ang = Math.atan2((this.player.y + 20) - e.y, (this.player.x + 19) - e.x);
+          this.surfaceProjectiles.push({
+            x: e.x,
+            y: e.y + 10,
+            vx: Math.cos(ang) * 250,
+            vy: Math.sin(ang) * 250,
+            life: 2.5,
+            radius: 6
+          });
+          e.shootTimer = 2.2;
+          this.audio.playImpact();
+        }
+      }
+
+      // Check Kamehameha Beam Collision (Attack Frame 2)
+      if (this.player.isAttacking && this.player.animFrame === 2) {
+        const beamMinX = this.player.facing > 0 ? this.player.x + 20 : this.player.x - 440;
+        const beamMaxX = this.player.facing > 0 ? this.player.x + 440 : this.player.x - 20;
+        const beamY = this.player.y + 36;
+        if (e.x + e.w > beamMinX && e.x < beamMaxX && Math.abs(e.y + e.h / 2 - beamY) < 45) {
+          e.hp -= 40 * dt * 60;
+          this.particles.push({
+            x: e.x + e.w / 2,
+            y: e.y + e.h / 2,
+            vx: (Math.random() - 0.5) * 200,
+            vy: (Math.random() - 0.5) * 200,
+            life: 0.25,
+            maxLife: 0.25,
+            color: '#00f3ff',
+            size: Math.random() * 4 + 2
+          });
+
+          if (e.hp <= 0) {
+            e.alive = false;
+            this.audio.playImpact();
+            if (this.crystalsCollected < this.totalCrystals) {
+              this.crystalsCollected++;
+              this.updateHUD();
+            }
+            for (let i = 0; i < 25; i++) {
+              this.particles.push({
+                x: e.x + e.w / 2,
+                y: e.y + e.h / 2,
+                vx: (Math.random() - 0.5) * 260,
+                vy: (Math.random() - 0.5) * 260,
+                life: 0.6,
+                maxLife: 0.6,
+                color: Math.random() > 0.4 ? '#00f3ff' : '#facc15',
+                size: Math.random() * 5 + 2
+              });
+            }
+          }
+        }
+      }
+
+      // Enemy Melee Collision with Player
+      if (
+        this.player.x < e.x + e.w &&
+        this.player.x + this.player.w > e.x &&
+        this.player.y < e.y + e.h &&
+        this.player.y + this.player.h > e.y
+      ) {
+        if (this.player.isInvulnerable <= 0) {
+          this.player.hp = Math.max(0, this.player.hp - 16);
+          this.player.isInvulnerable = 0.8;
+          this.player.vx = (this.player.x > e.x ? 220 : -220);
+          this.player.vy = -200;
+          this.audio.playImpact();
+          this.updateHUD();
+          if (this.player.hp <= 0) {
+            this.recoverSurfacePlayer();
+          }
+        }
+      }
+    }
+
+    // Surface Projectiles update & collision
+    for (let i = this.surfaceProjectiles.length - 1; i >= 0; i--) {
+      const proj = this.surfaceProjectiles[i];
+      proj.life -= dt;
+      proj.x += proj.vx * dt;
+      proj.y += proj.vy * dt;
+
+      const hitDist = Math.hypot(this.player.x + this.player.w / 2 - proj.x, this.player.y + this.player.h / 2 - proj.y);
+      if (hitDist < proj.radius + 18) {
+        if (this.player.isInvulnerable <= 0) {
+          this.player.hp = Math.max(0, this.player.hp - 14);
+          this.player.isInvulnerable = 0.8;
+          this.player.vx = Math.sign(proj.vx) * 160;
+          this.player.vy = -160;
+          this.audio.playImpact();
+          this.updateHUD();
+          if (this.player.hp <= 0) {
+            this.recoverSurfacePlayer();
+          }
+        }
+        this.surfaceProjectiles.splice(i, 1);
+        continue;
+      }
+
+      if (proj.life <= 0) {
+        this.surfaceProjectiles.splice(i, 1);
+      }
+    }
+
     // Checkpoint Beacon
     if (this.checkpointBeacon) {
       const beaconX = this.checkpointBeacon.x;
@@ -1937,6 +2319,20 @@ class VectorOdysseyGame {
       }
       crystalIcons.textContent = str;
     }
+
+    // Player Health Status Bar
+    const playerHpText = document.getElementById('hud-player-hp');
+    const playerHpBar = document.getElementById('hud-player-hp-bar');
+    if (playerHpText && playerHpBar) {
+      const hp = Math.max(0, Math.ceil(this.player.hp));
+      playerHpText.textContent = `${hp} / ${this.player.maxHp}`;
+      playerHpBar.style.width = `${Math.floor((hp / this.player.maxHp) * 100)}%`;
+      if (hp <= 30) {
+        playerHpBar.style.background = 'linear-gradient(90deg, #ef4444, #f97316)';
+      } else {
+        playerHpBar.style.background = 'linear-gradient(90deg, #10b981, #00f3ff)';
+      }
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -1945,7 +2341,9 @@ class VectorOdysseyGame {
   draw() {
     this.ctx.clearRect(0, 0, this.V_WIDTH, this.V_HEIGHT);
 
-    if (this.state === 'SPACE_FLIGHT' || (this.state === 'PAUSED' && this.previousState === 'SPACE_FLIGHT')) {
+    if (this.state === 'MAIN_MENU') {
+      this.drawSpaceScene();
+    } else if (this.state === 'SPACE_FLIGHT' || (this.state === 'PAUSED' && this.previousState === 'SPACE_FLIGHT')) {
       this.drawSpaceScene();
     } else if (this.state === 'LANDING') {
       this.drawLandingScene();
@@ -1999,7 +2397,11 @@ class VectorOdysseyGame {
     // 6. Upgraded High-Tech Sci-Fi Starfighter (Req 3)
     this.drawSpaceship();
 
-    // 7. Space Particles
+    // 7. Hostile Outer Space Hunter Drones & Plasma Lasers
+    this.hunterDrones.forEach(d => this.drawHunterDrone(d));
+    this.drawSpaceLasers();
+
+    // 8. Space Particles
     this.drawParticles();
 
     this.ctx.restore();
@@ -2409,6 +2811,13 @@ class VectorOdysseyGame {
     // Landed Spaceship beside character
     this.drawLandedSpaceship();
 
+    // Dynamic Gravity Anomaly Fields & Quantum Lift
+    this.drawGravityFields();
+
+    // Surface Combat Enemies & Plasma Projectiles
+    this.drawSurfaceEnemies();
+    this.drawSurfaceProjectiles();
+
     if (this.terminal) this.drawTerminal(this.terminal);
     if (this.checkpointBeacon) this.drawCheckpointBeacon(this.checkpointBeacon);
     if (this.ancientGate) this.drawAncientGate(this.ancientGate);
@@ -2758,6 +3167,209 @@ class VectorOdysseyGame {
     this.ctx.restore();
   }
 
+  drawHunterDrone(d) {
+    this.ctx.save();
+    this.ctx.translate(d.x, d.y);
+    this.ctx.rotate(d.angle);
+
+    // Glowing thruster flare
+    this.ctx.fillStyle = d.alert ? '#ef4444' : '#f97316';
+    this.ctx.shadowColor = '#ef4444';
+    this.ctx.shadowBlur = 12;
+    this.ctx.beginPath();
+    this.ctx.moveTo(-16, -5);
+    this.ctx.lineTo(-26 - Math.random() * 8, 0);
+    this.ctx.lineTo(-16, 5);
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // Red angular interceptor hull
+    this.ctx.fillStyle = '#1e1b4b';
+    this.ctx.strokeStyle = d.alert ? '#ef4444' : '#f43f5e';
+    this.ctx.lineWidth = 2;
+    this.ctx.beginPath();
+    this.ctx.moveTo(22, 0);       // Nose
+    this.ctx.lineTo(-16, -18);   // Left wingtip
+    this.ctx.lineTo(-10, -6);    // Inset
+    this.ctx.lineTo(-14, 0);     // Tail center
+    this.ctx.lineTo(-10, 6);     // Inset
+    this.ctx.lineTo(-16, 18);    // Right wingtip
+    this.ctx.closePath();
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Red visor / sensor eye
+    this.ctx.fillStyle = '#ef4444';
+    this.ctx.beginPath();
+    this.ctx.arc(4, 0, 4, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Wing cannons
+    this.ctx.fillStyle = '#ef4444';
+    this.ctx.fillRect(-6, -16, 10, 2.5);
+    this.ctx.fillRect(-6, 14, 10, 2.5);
+
+    this.ctx.restore();
+  }
+
+  drawSpaceLasers() {
+    this.ctx.save();
+    this.ctx.shadowColor = '#ef4444';
+    this.ctx.shadowBlur = 10;
+    this.ctx.fillStyle = '#f87171';
+    this.ctx.strokeStyle = '#ef4444';
+    this.ctx.lineWidth = 3;
+
+    for (const l of this.spaceLasers) {
+      this.ctx.beginPath();
+      this.ctx.arc(l.x, l.y, 4, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(l.x, l.y);
+      this.ctx.lineTo(l.x - l.vx * 0.04, l.y - l.vy * 0.04);
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+  }
+
+  drawGravityFields() {
+    // 1. High-Gravity Valley (x: 840 to 1220)
+    this.ctx.save();
+    const grad = this.ctx.createLinearGradient(840, 300, 840, 700);
+    grad.addColorStop(0, 'rgba(168, 85, 247, 0.02)');
+    grad.addColorStop(1, 'rgba(168, 85, 247, 0.15)');
+    this.ctx.fillStyle = grad;
+    this.ctx.fillRect(840, 300, 380, 400);
+
+    this.ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+    this.ctx.lineWidth = 1.5;
+    for (let x = 860; x <= 1200; x += 60) {
+      const animY = (this.gameTime * 140 + x * 2) % 360 + 320;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, animY);
+      this.ctx.lineTo(x, animY + 24);
+      this.ctx.stroke();
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(x - 4, animY + 18);
+      this.ctx.lineTo(x, animY + 24);
+      this.ctx.lineTo(x + 4, animY + 18);
+      this.ctx.stroke();
+    }
+
+    this.ctx.font = '11px Share Tech Mono';
+    this.ctx.fillStyle = '#c084fc';
+    this.ctx.fillText('ANOMALOUS HIGH GRAVITY // g = 15.8 m/s²', 860, 340);
+    this.ctx.restore();
+
+    // 2. Quantum Anti-Gravity Jump Lift (x: 1040, y: 646)
+    this.ctx.save();
+    this.ctx.fillStyle = 'rgba(0, 243, 255, 0.25)';
+    this.ctx.strokeStyle = '#00f3ff';
+    this.ctx.lineWidth = 2;
+    this.ctx.fillRect(1015, 646, 65, 14);
+    this.ctx.strokeRect(1015, 646, 65, 14);
+
+    const liftGrad = this.ctx.createLinearGradient(1048, 646, 1048, 520);
+    liftGrad.addColorStop(0, 'rgba(0, 243, 255, 0.35)');
+    liftGrad.addColorStop(1, 'transparent');
+    this.ctx.fillStyle = liftGrad;
+    this.ctx.fillRect(1020, 520, 55, 126);
+
+    this.ctx.font = '10px Orbitron';
+    this.ctx.fillStyle = '#00f3ff';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('▲ QUANTUM LIFT ▲', 1048, 640);
+    this.ctx.restore();
+  }
+
+  drawSurfaceEnemies() {
+    for (const e of this.surfaceEnemies) {
+      if (!e.alive) continue;
+      this.ctx.save();
+
+      if (e.type === 'crawler') {
+        this.ctx.translate(e.x + e.w / 2, e.y + e.h);
+        this.ctx.scale(e.facing, 1);
+
+        this.ctx.strokeStyle = '#94a3b8';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.beginPath();
+        const legWiggle = Math.sin(this.gameTime * 15) * 5;
+        this.ctx.moveTo(-12, 0); this.ctx.lineTo(-8, -12); this.ctx.lineTo(-14 + legWiggle, 0);
+        this.ctx.moveTo(8, 0); this.ctx.lineTo(6, -12); this.ctx.lineTo(12 - legWiggle, 0);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = '#1e1b4b';
+        this.ctx.strokeStyle = '#ef4444';
+        this.ctx.lineWidth = 2;
+        this.ctx.fillRect(-16, -24, 32, 16);
+        this.ctx.strokeRect(-16, -24, 32, 16);
+
+        this.ctx.fillStyle = '#ef4444';
+        this.ctx.shadowColor = '#ef4444';
+        this.ctx.shadowBlur = 8;
+        this.ctx.fillRect(6, -20, 8, 8);
+
+        this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        this.ctx.fillRect(-16, -32, 32, 4);
+        this.ctx.fillStyle = '#ef4444';
+        this.ctx.fillRect(-16, -32, 32 * (e.hp / e.maxHp), 4);
+      } else if (e.type === 'sentinel') {
+        const floatHover = Math.sin(this.gameTime * 4 + e.id) * 6;
+        this.ctx.translate(e.x + e.w / 2, e.y + e.h / 2 + floatHover);
+
+        this.ctx.strokeStyle = '#38bdf8';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.ellipse(0, 14, 18, 6, 0, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.strokeStyle = '#ef4444';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = '#ef4444';
+        this.ctx.shadowColor = '#ef4444';
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        this.ctx.arc(e.facing * 4, 0, 5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.shadowBlur = 0;
+        this.ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        this.ctx.fillRect(-18, -24, 36, 4);
+        this.ctx.fillStyle = '#ef4444';
+        this.ctx.fillRect(-18, -24, 36 * (e.hp / e.maxHp), 4);
+      }
+
+      this.ctx.restore();
+    }
+  }
+
+  drawSurfaceProjectiles() {
+    this.ctx.save();
+    this.ctx.fillStyle = '#f87171';
+    this.ctx.strokeStyle = '#ef4444';
+    this.ctx.shadowColor = '#ef4444';
+    this.ctx.shadowBlur = 10;
+    this.ctx.lineWidth = 2;
+
+    for (const p of this.surfaceProjectiles) {
+      this.ctx.beginPath();
+      this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.stroke();
+    }
+    this.ctx.restore();
+  }
+
   // --------------------------------------------------------------------------
   // MAIN LOOP
   // --------------------------------------------------------------------------
@@ -2765,7 +3377,9 @@ class VectorOdysseyGame {
     const dt = Math.min((currentTime - this.lastTime) / 1000, 0.05);
     this.lastTime = currentTime;
 
-    if (this.state === 'SPACE_FLIGHT') {
+    if (this.state === 'MAIN_MENU') {
+      this.updateSpaceWorld(dt * 0.5);
+    } else if (this.state === 'SPACE_FLIGHT') {
       this.updateSpaceship(dt);
       this.updateSpaceWorld(dt);
     } else if (this.state === 'LANDING') {
